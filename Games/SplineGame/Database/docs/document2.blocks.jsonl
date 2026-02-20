@@ -1,5 +1,5 @@
-{"id":"e6f88ecd-d127-4abc-b41d-d222f33ad669","order":"a0","type":"Paragraph","text":"This document explains how to edit levels, create entity types, and place entities in the SplineGame level editor.","spans":[],"indent":0,"checked":false,"lang":""}
-{"id":"9e303f65-f165-458f-8dd3-d19828455ca6","order":"a1","type":"Heading1","text":"Overview","spans":[],"indent":0,"checked":false,"lang":""}
+{"id":"9e303f65-f165-458f-8dd3-d19828455ca6","order":"a0","type":"Heading1","text":"Overview","spans":[],"indent":0,"checked":false,"lang":""}
+{"id":"e6f88ecd-d127-4abc-b41d-d222f33ad669","order":"a1","type":"Paragraph","text":"This document explains how to edit levels, create entity types, and place entities in the SplineGame level editor.","spans":[],"indent":0,"checked":false,"lang":""}
 {"id":"f270c8bf-63c9-422e-876c-01646d585eb5","order":"a2","type":"Paragraph","text":"SplineGame levels are built around Bezier splines. Each level has a spline path defined by control points, and entities (enemies, triggers, player spawns) are placed along or near the spline. The data is organized into a hierarchy of tables in the database.","spans":[],"indent":0,"checked":false,"lang":""}
 {"id":"6e1a36a1-f05f-4b7f-a428-daf95f911d37","order":"a3","type":"Heading1","text":"Data Architecture","spans":[],"indent":0,"checked":false,"lang":""}
 {"id":"c082fe48-939a-4867-a838-a35a2e2a402f","order":"a4","type":"Paragraph","text":"The level system uses a nested table hierarchy:","spans":[],"indent":0,"checked":false,"lang":""}

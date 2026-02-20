@@ -120,14 +120,14 @@
   ],
   "documents": [
     {
-      "id": "8de6b006-5a48-4998-a298-5a75c91d5106",
-      "title": "hellow csgbc",
-      "fileName": "document1"
-    },
-    {
       "id": "cd4a9ce5-e0b1-4596-9338-b323791a236c",
       "title": "SplineGame Level Editing Guide",
       "fileName": "document2"
+    },
+    {
+      "id": "c992cecc-4f56-4994-86a8-0590859d0fcb",
+      "title": "Document 2",
+      "fileName": "document3"
     }
   ],
   "ui": {
