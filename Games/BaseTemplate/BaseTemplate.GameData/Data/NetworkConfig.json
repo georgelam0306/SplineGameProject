@@ -1,8 +1,0 @@
-[
-  {
-    "Id": 0,
-    "Name": "Default",
-    "InputDelayFrames": 2,
-    "MaxFramesAheadOfConfirmed": 7
-  }
-]

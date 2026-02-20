@@ -3722,6 +3722,85 @@ internal sealed class DocWorkspace : IDerpDocEditorContext
         }
     }
 
+    public bool CanStartGame()
+    {
+        return TryResolveStartGameWorkingDirectory(out _, out _);
+    }
+
+    public bool TryStartGame(out string error)
+    {
+        if (!TryResolveStartGameWorkingDirectory(out string workingDirectory, out error))
+        {
+            LastStatusMessage = error;
+            return false;
+        }
+
+        var startInfo = new ProcessStartInfo("dotnet")
+        {
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            WorkingDirectory = workingDirectory,
+        };
+        startInfo.ArgumentList.Add("run");
+
+        try
+        {
+            Process? process = Process.Start(startInfo);
+            if (process == null)
+            {
+                error = "Failed to start game process.";
+                LastStatusMessage = error;
+                return false;
+            }
+
+            process.Dispose();
+            LastStatusMessage = "Started game from " + workingDirectory + ".";
+            return true;
+        }
+        catch (Exception ex)
+        {
+            error = "Failed to start game: " + ex.Message;
+            LastStatusMessage = error;
+            return false;
+        }
+    }
+
+    private bool TryResolveStartGameWorkingDirectory(out string workingDirectory, out string error)
+    {
+        workingDirectory = "";
+        error = "";
+
+        string? candidateDirectory = GameRoot;
+        if (string.IsNullOrWhiteSpace(candidateDirectory) && !string.IsNullOrWhiteSpace(ProjectPath))
+        {
+            if (DocProjectPaths.TryGetGameRootFromDbRoot(ProjectPath, out string inferredGameRoot))
+            {
+                candidateDirectory = inferredGameRoot;
+                GameRoot = inferredGameRoot;
+            }
+            else
+            {
+                candidateDirectory = ProjectPath;
+            }
+        }
+
+        if (string.IsNullOrWhiteSpace(candidateDirectory))
+        {
+            error = "No active project path. Open a project first.";
+            return false;
+        }
+
+        string fullDirectory = Path.GetFullPath(candidateDirectory);
+        if (!Directory.Exists(fullDirectory))
+        {
+            error = "Project directory does not exist: " + fullDirectory;
+            return false;
+        }
+
+        workingDirectory = fullDirectory;
+        return true;
+    }
+
     public bool TryExportActiveProject(bool writeManifest, out ExportPipelineResult? result)
     {
         result = null;

@@ -106,6 +106,12 @@ internal static class MainMenuPanel
                 workspace.AutoSave = autoSave;
             }
 
+            bool canStartGame = workspace.CanStartGame();
+            if (Im.MenuItem("Start Game", shortcut: "Ctrl+R", enabled: canStartGame))
+            {
+                _ = workspace.TryStartGame(out _);
+            }
+
             Im.Separator();
 
             ImContextMenu.ItemDisabled(_cachedProjectLine);
