@@ -1,0 +1,42 @@
+{
+  "id": "96a2858a-1156-4638-b1fb-8ad3aed5b325",
+  "name": "Levels_SplineGameLevel 2",
+  "columns": [
+    {
+      "id": "_parentRowId",
+      "name": "_parentRowId",
+      "kind": "Text",
+      "typeId": "core.text",
+      "width": 120,
+      "hidden": true
+    },
+    {
+      "id": "entity_tools_table",
+      "name": "EntityTools",
+      "kind": "TableRef",
+      "typeId": "core.table_ref",
+      "width": 220
+    },
+    {
+      "id": "points",
+      "name": "Points",
+      "kind": "Subtable",
+      "typeId": "core.subtable",
+      "width": 190,
+      "subtableId": "87139cb0-1731-4390-80f2-642b27170f5b"
+    },
+    {
+      "id": "entities",
+      "name": "Entities",
+      "kind": "Subtable",
+      "typeId": "core.subtable",
+      "width": 210,
+      "subtableId": "886441e4-b8c2-46b6-b9d5-72adb43be990"
+    }
+  ],
+  "parentTableId": "76b483c2-2680-4791-a052-0f7dbf5fb184",
+  "parentRowColumnId": "_parentRowId",
+  "pluginTableTypeId": "splinegame.level.table",
+  "pluginOwnerColumnTypeId": "splinegame.level",
+  "pluginSchemaLocked": true
+}

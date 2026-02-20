@@ -1,0 +1,49 @@
+#version 450
+
+layout(local_size_x = 256) in;
+
+// InstanceParams: 48 bytes per instance (std430 aligned)
+// Must match C# InstanceParams struct layout
+struct InstanceParams {
+    vec3 position;      // offset 0, 12 bytes
+    float rotationY;    // offset 12, 4 bytes (packs after vec3)
+    vec3 scale;         // offset 16, 12 bytes (aligned to 16)
+    uint meshId;        // offset 28, 4 bytes (packs after vec3)
+    uint textureId;     // offset 32, 4 bytes
+    uint packedColor;   // offset 36, 4 bytes
+    // 8 bytes implicit padding to 48-byte stride
+};
+
+layout(std430, set = 0, binding = 0) readonly buffer Params {
+    InstanceParams params[];
+};
+
+layout(std430, set = 0, binding = 1) writeonly buffer Transforms {
+    mat4 transforms[];
+};
+
+layout(push_constant) uniform PushConstants {
+    uint instanceCount;
+};
+
+void main() {
+    uint i = gl_GlobalInvocationID.x;
+    if (i >= instanceCount) return;
+
+    InstanceParams p = params[i];
+
+    float c = cos(p.rotationY);
+    float s = sin(p.rotationY);
+    float sx = p.scale.x;
+    float sy = p.scale.y;
+    float sz = p.scale.z;
+
+    // Combined: Translation * RotationY * Scale (T * R * S)
+    // Matrix is column-major in GLSL
+    transforms[i] = mat4(
+        c * sx,  0.0,    -s * sx, 0.0,   // column 0
+        0.0,     sy,      0.0,    0.0,   // column 1
+        s * sz,  0.0,     c * sz, 0.0,   // column 2
+        p.position.x, p.position.y, p.position.z, 1.0  // column 3 (translation)
+    );
+}

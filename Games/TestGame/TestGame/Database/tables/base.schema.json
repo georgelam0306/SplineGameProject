@@ -1,0 +1,30 @@
+{
+  "id": "f37c8588-0b6b-47db-8eba-6c3b22ff91a2",
+  "name": "Base",
+  "columns": [
+    {
+      "id": "0f6fdfb1-037c-4c84-8307-c83c83db34a3",
+      "name": "Name",
+      "kind": "Text",
+      "typeId": "core.text",
+      "width": 150
+    },
+    {
+      "id": "b5291790-836c-433e-855d-fc76cdde699a",
+      "name": "Score",
+      "kind": "Number",
+      "typeId": "core.number",
+      "width": 150
+    }
+  ],
+  "variants": [
+    {
+      "id": 1,
+      "name": "Heroic"
+    },
+    {
+      "id": 2,
+      "name": "Variant 2"
+    }
+  ]
+}

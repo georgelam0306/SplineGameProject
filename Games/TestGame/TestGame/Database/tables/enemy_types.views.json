@@ -1,0 +1,82 @@
+{
+  "views": [
+    {
+      "id": "9a5a2792-8cb8-4c03-905c-bf54e87deda0",
+      "name": "Grid view",
+      "type": "Grid",
+      "sorts": [
+        {
+          "id": "6d9adb4f-31b3-4427-a346-c26232cb3b98",
+          "columnId": "9dd5fec7-13a7-49e3-8a20-897a96e12ce8"
+        }
+      ],
+      "filters": [
+        {
+          "id": "9e58cec7-cff8-4286-9e3c-72e5abdc9eab",
+          "columnId": "9dd5fec7-13a7-49e3-8a20-897a96e12ce8",
+          "op": "LessThan"
+        }
+      ]
+    },
+    {
+      "id": "bf8e97e6-97a3-4b76-8de5-8634524df177",
+      "name": "Chart view",
+      "type": "Chart",
+      "chartKind": "Area",
+      "chartCategoryColumnId": "14e6d98c-a7d4-45a6-bc0b-640f1c04a23e",
+      "chartValueColumnId": "18476758-3b35-4779-b897-7cfca60a34de"
+    },
+    {
+      "id": "9b097487-517d-466c-be38-413b3e16f08e",
+      "name": "Grid view",
+      "type": "Chart",
+      "chartKind": "Area",
+      "chartCategoryColumnId": "14e6d98c-a7d4-45a6-bc0b-640f1c04a23e",
+      "chartValueColumnId": "18476758-3b35-4779-b897-7cfca60a34de"
+    },
+    {
+      "id": "621a6afa-9b2d-4645-a8db-468542deab41",
+      "name": "Grid view (instance)",
+      "type": "Grid",
+      "sorts": [
+        {
+          "id": "6d9adb4f-31b3-4427-a346-c26232cb3b98",
+          "columnId": "9dd5fec7-13a7-49e3-8a20-897a96e12ce8"
+        }
+      ]
+    },
+    {
+      "id": "d0bbb0a3-8f41-4c4c-805b-c9a00d04a08c",
+      "name": "Grid view (instance)",
+      "type": "Grid",
+      "sorts": [
+        {
+          "id": "6d9adb4f-31b3-4427-a346-c26232cb3b98",
+          "columnId": "9dd5fec7-13a7-49e3-8a20-897a96e12ce8"
+        }
+      ]
+    },
+    {
+      "id": "332b10f9-b588-4c06-9c46-df919b57158f",
+      "name": "Grid view (instance)",
+      "type": "Grid",
+      "sorts": [
+        {
+          "id": "6d9adb4f-31b3-4427-a346-c26232cb3b98",
+          "columnId": "9dd5fec7-13a7-49e3-8a20-897a96e12ce8"
+        }
+      ]
+    },
+    {
+      "id": "a1b0a6f1-64eb-4c9f-8a31-3b5097912ea9",
+      "name": "Grid view (instance)",
+      "type": "Grid",
+      "sorts": [
+        {
+          "id": "6d9adb4f-31b3-4427-a346-c26232cb3b98",
+          "columnId": "9dd5fec7-13a7-49e3-8a20-897a96e12ce8"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "profiles": {
+    "DerpTech2D.MatchmakingServer": {
+      "commandName": "Project",
+      "launchBrowser": true,
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "applicationUrl": "https://localhost:62149;http://localhost:62150"
+    }
+  }
+}

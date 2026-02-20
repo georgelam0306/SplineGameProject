@@ -1,0 +1,77 @@
+{
+  "id": "fb2f4cba-878a-4b6e-994f-006285cac1e3",
+  "name": "RuntimeVariableDemo",
+  "columns": [
+    {
+      "id": "b0178e47-1625-4048-a3be-856a4e84ef8f",
+      "name": "Id",
+      "kind": "Number",
+      "typeId": "core.number",
+      "width": 150,
+      "exportType": "int"
+    },
+    {
+      "id": "64a03177-f7fc-4eea-aa5f-de6c452e7fa4",
+      "name": "Label",
+      "kind": "Text",
+      "typeId": "core.text",
+      "width": 150
+    },
+    {
+      "id": "0416a817-b22c-4a7b-8c5d-5f7a2f9887db",
+      "name": "Level",
+      "kind": "Number",
+      "typeId": "core.number",
+      "width": 150,
+      "exportType": "int"
+    }
+  ],
+  "variants": [
+    {
+      "id": 1,
+      "name": "Heroic"
+    },
+    {
+      "id": 2,
+      "name": "Variant 2"
+    }
+  ],
+  "export": {
+    "enabled": true
+  },
+  "keys": {
+    "primaryKeyColumnId": "b0178e47-1625-4048-a3be-856a4e84ef8f"
+  },
+  "variables": [
+    {
+      "id": "ef367a7f-048a-4ad0-b182-8df4328456b8",
+      "name": "min_level",
+      "kind": "Number",
+      "expression": "0"
+    },
+    {
+      "id": "3f3f8ec6-8810-46b9-b8f7-e88ca18e5ea0",
+      "name": "effective_min_level",
+      "kind": "Number",
+      "expression": "thisTable.min_level"
+    },
+    {
+      "id": "55a80d9d-2d47-468c-aa96-a193e14e5914",
+      "name": "min_level_text",
+      "kind": "Text",
+      "expression": "\u00223\u0022"
+    },
+    {
+      "id": "811b05d3-6e27-4f12-98df-6fbf57f7ab9c",
+      "name": "sort_desc",
+      "kind": "Checkbox",
+      "expression": "false"
+    },
+    {
+      "id": "cf275088-1ec5-4053-b7e1-b9d8f96d5f2e",
+      "name": "level_column_id",
+      "kind": "Text",
+      "expression": "\u00220416a817-b22c-4a7b-8c5d-5f7a2f9887db\u0022"
+    }
+  ]
+}

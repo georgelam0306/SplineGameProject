@@ -1,0 +1,73 @@
+{
+  "id": "10fdbe8b-c9a9-441a-a380-834a6d9f154c",
+  "name": "UnlockItems",
+  "columns": [
+    {
+      "id": "deaed933-a7b1-4f21-8f7a-52466eea858d",
+      "name": "Name",
+      "kind": "Text",
+      "width": 150
+    },
+    {
+      "id": "6915b329-3b68-4d66-9c9e-7bf8082d2ced",
+      "name": "Category",
+      "kind": "Select",
+      "width": 150,
+      "options": [
+        "Ore",
+        "Building",
+        "Recipe",
+        "Feature",
+        "Alloy",
+        "Client"
+      ]
+    },
+    {
+      "id": "b2fefba4-aad7-465d-afac-be7a2d935f5d",
+      "name": "OreRef",
+      "kind": "Relation",
+      "width": 150,
+      "relationTableId": "e5a0e561-fbb4-4638-844d-6ea1762ad166",
+      "relationDisplayColumnId": "9fcd1114-9732-4d48-93cf-588aa4b067ce"
+    },
+    {
+      "id": "8f7d4fd8-26f5-4fa4-ba73-070b9baa667e",
+      "name": "AlloyRef",
+      "kind": "Relation",
+      "width": 150,
+      "relationTableId": "0d222a86-8c63-494d-890e-984807011162",
+      "relationDisplayColumnId": "c1edfcfc-6c54-410c-afad-eeb8bbd99041"
+    },
+    {
+      "id": "3d5c469a-bbbc-47e1-939b-be21429e4b67",
+      "name": "ClientTierRef",
+      "kind": "Relation",
+      "width": 150,
+      "relationTableId": "71fa838a-6486-4bf0-a963-87034362d53c",
+      "relationDisplayColumnId": "ac19a614-b04e-4d56-a708-0663d040a822"
+    },
+    {
+      "id": "8824ca92-f7e3-4b05-ad7b-7d9f7ac2aa67",
+      "name": "FeatureKey",
+      "kind": "Text",
+      "width": 150
+    },
+    {
+      "id": "55fc9d29-3612-4d7e-b0bc-8257a29934e8",
+      "name": "BuildingRef",
+      "kind": "Relation",
+      "width": 150,
+      "relationTableId": "dd237493-0dbb-42a1-b013-2ba3af229fee",
+      "relationDisplayColumnId": "ce3bb51e-2080-41fd-bc15-ae8673999be4"
+    },
+    {
+      "id": "f2c3210f-930d-427f-b68e-f58eff35a1a2",
+      "name": "RecipeTag",
+      "kind": "Text",
+      "width": 150
+    }
+  ],
+  "keys": {
+    "primaryKeyColumnId": "deaed933-a7b1-4f21-8f7a-52466eea858d"
+  }
+}

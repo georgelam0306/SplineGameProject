@@ -1,0 +1,23 @@
+{
+  "id": "61fedeb6-17c3-4f18-b01a-26724958110b",
+  "name": "Second",
+  "columns": [
+    {
+      "id": "38699be4-766c-4f98-a704-b7e5bd192406",
+      "name": "Name",
+      "kind": "Text",
+      "typeId": "core.text",
+      "width": 150
+    }
+  ],
+  "variants": [
+    {
+      "id": 1,
+      "name": "Heroic"
+    },
+    {
+      "id": 2,
+      "name": "Variant 2"
+    }
+  ]
+}

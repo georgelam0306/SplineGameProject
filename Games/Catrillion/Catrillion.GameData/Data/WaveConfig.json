@@ -1,0 +1,21 @@
+[
+  {
+    "Id": 0,
+    "Name": "Default",
+    "FramesPerDay": 7200,
+    "HordeDayInterval": 3,
+    "HordeVarianceFrames": 600,
+    "HordeWarningFrames": 7200,
+    "HordeBaseZombieCount": 40,
+    "HordeZombiesPerWave": 20,
+    "HordeSpawnRate": 4,
+    "MiniWaveIntervalFrames": 3600,
+    "MiniWaveVarianceFrames": 600,
+    "MiniWaveBaseCount": 8,
+    "MiniWaveCountPerWave": 2,
+    "FinalWaveNumber": 10,
+    "FinalWaveMultiplierPercent": 250,
+    "EdgeSpawnOffset": 64,
+    "EdgeSpawnSpread": 512
+  }
+]

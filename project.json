@@ -1,0 +1,10 @@
+{
+  "name": "derp-doc",
+  "tables": [
+    {
+      "id": "798aa6b8-8385-4838-b146-30781d54ef6f",
+      "name": "Weapons",
+      "fileName": "weapons"
+    }
+  ]
+}

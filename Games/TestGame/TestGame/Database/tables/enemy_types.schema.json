@@ -1,0 +1,69 @@
+{
+  "id": "578b2c96-f934-4cc4-9764-9d9f5ce0b752",
+  "name": "EnemyTypes",
+  "columns": [
+    {
+      "id": "14e6d98c-a7d4-45a6-bc0b-640f1c04a23e",
+      "name": "EnemyType",
+      "kind": "Text",
+      "typeId": "core.text",
+      "width": 105.66797
+    },
+    {
+      "id": "9dd5fec7-13a7-49e3-8a20-897a96e12ce8",
+      "name": "PeakLevel",
+      "kind": "Number",
+      "typeId": "core.number",
+      "width": 113.19531
+    },
+    {
+      "id": "5d4fe801-2306-41de-bb5f-af5d5606ae61",
+      "name": "Spread",
+      "kind": "Number",
+      "typeId": "core.number",
+      "width": 107.625
+    },
+    {
+      "id": "6dc1aaf4-f204-4062-acf6-087f559920ed",
+      "name": "Falloff",
+      "kind": "Number",
+      "typeId": "core.number",
+      "width": 94.46094,
+      "numberMin": 0,
+      "numberMax": 100
+    },
+    {
+      "id": "7acc6a44-fef9-4588-90c7-8e3b1fc80faa",
+      "name": "BaseWeight",
+      "kind": "Number",
+      "typeId": "core.number",
+      "width": 89.70703
+    },
+    {
+      "id": "04089f22-a323-4b83-bd59-0063acee8464",
+      "name": "Difficulty",
+      "kind": "Number",
+      "typeId": "core.number",
+      "width": 88.17578
+    },
+    {
+      "id": "18476758-3b35-4779-b897-7cfca60a34de",
+      "name": "SpawnCurve",
+      "kind": "Subtable",
+      "typeId": "core.subtable",
+      "width": 221.14062,
+      "subtableId": "747941af-e7e4-4d81-9b4a-55538899550d"
+    }
+  ],
+  "variants": [
+    {
+      "id": 1,
+      "name": "Heroic"
+    },
+    {
+      "id": 2,
+      "name": "Variant 2"
+    }
+  ],
+  "export": {}
+}

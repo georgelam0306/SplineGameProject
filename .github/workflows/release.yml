@@ -1,0 +1,181 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'catrillion-v*'  # Catrillion game releases
+      - 'v*'             # Legacy format (defaults to Catrillion)
+
+jobs:
+  detect-game:
+    runs-on: ubuntu-latest
+    outputs:
+      game: ${{ steps.parse.outputs.game }}
+      version: ${{ steps.parse.outputs.version }}
+    steps:
+      - name: Parse tag
+        id: parse
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          echo "Tag: $TAG"
+
+          # Check if tag has game prefix (e.g., catrillion-v1.0.0)
+          if [[ "$TAG" =~ ^([a-zA-Z]+)-v(.+)$ ]]; then
+            GAME="${BASH_REMATCH[1]}"
+            VERSION="${BASH_REMATCH[2]}"
+          else
+            # Legacy v* tag defaults to Catrillion
+            GAME="Catrillion"
+            VERSION="${TAG#v}"
+          fi
+
+          echo "game=$GAME" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Building $GAME version $VERSION"
+
+  build:
+    needs: detect-game
+    name: Build ${{ needs.detect-game.outputs.game }} (${{ matrix.rid }}${{ matrix.aot && '-aot' || '' }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # .NET self-contained builds
+          - os: ubuntu-latest
+            rid: linux-x64
+            aot: false
+          - os: macos-latest
+            rid: osx-arm64
+            aot: false
+          - os: windows-latest
+            rid: win-x64
+            aot: false
+          # NativeAOT builds
+          - os: ubuntu-latest
+            rid: linux-x64
+            aot: true
+          - os: macos-latest
+            rid: osx-arm64
+            aot: true
+          - os: windows-latest
+            rid: win-x64
+            aot: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 9.0
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
+          restore-keys: ${{ runner.os }}-nuget-
+
+      # NativeAOT requires platform-specific build tools
+      - name: Install NativeAOT prerequisites (Linux)
+        if: matrix.aot && runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y clang zlib1g-dev
+
+      - name: Resolve game directory
+        id: resolve
+        shell: bash
+        run: |
+          GAME_INPUT="${{ needs.detect-game.outputs.game }}"
+          GAME_DIR=$(find Games -maxdepth 1 -type d -iname "$GAME_INPUT" | head -1)
+          if [ -z "$GAME_DIR" ]; then
+            echo "Error: No game directory found matching '$GAME_INPUT'"
+            exit 1
+          fi
+          GAME=$(basename "$GAME_DIR")
+          echo "game=$GAME" >> $GITHUB_OUTPUT
+          echo "Resolved game: $GAME"
+
+      - name: Build release (.NET)
+        if: ${{ !matrix.aot }}
+        shell: bash
+        run: ./scripts/publish-game.sh ${{ steps.resolve.outputs.game }} ${{ matrix.rid }}
+
+      - name: Build release (NativeAOT)
+        if: ${{ matrix.aot }}
+        shell: bash
+        run: ./scripts/publish-game-aot.sh ${{ steps.resolve.outputs.game }} ${{ matrix.rid }}
+
+      - name: Upload artifact (.NET)
+        if: ${{ !matrix.aot }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.resolve.outputs.game }}-${{ matrix.rid }}
+          path: |
+            Games/${{ steps.resolve.outputs.game }}/publish/${{ matrix.rid }}/dist/*.zip
+            Games/${{ steps.resolve.outputs.game }}/publish/${{ matrix.rid }}/dist/*.tar.gz
+          retention-days: 1
+
+      - name: Upload artifact (NativeAOT)
+        if: ${{ matrix.aot }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.resolve.outputs.game }}-${{ matrix.rid }}-aot
+          path: |
+            Games/${{ steps.resolve.outputs.game }}/publish-aot/${{ matrix.rid }}/dist/*.zip
+            Games/${{ steps.resolve.outputs.game }}/publish-aot/${{ matrix.rid }}/dist/*.tar.gz
+          retention-days: 1
+
+      - name: Output resolved game
+        id: output
+        run: echo "game=${{ steps.resolve.outputs.game }}" >> $GITHUB_OUTPUT
+
+  release:
+    needs: [detect-game, build]
+    name: Create Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: List artifacts
+        run: find artifacts -type f
+
+      # Delay to avoid hitting rate limits after parallel builds
+      - name: Wait before release
+        run: sleep 30
+
+      - name: Create GitHub Release
+        id: release
+        uses: softprops/action-gh-release@v2
+        continue-on-error: true
+        with:
+          name: ${{ needs.detect-game.outputs.game }} v${{ needs.detect-game.outputs.version }}
+          files: artifacts/**/*
+          generate_release_notes: true
+          fail_on_unmatched_files: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Retry release if rate-limited
+      - name: Wait before retry
+        if: steps.release.outcome == 'failure'
+        run: |
+          echo "First attempt failed, waiting 60 seconds before retry..."
+          sleep 60
+
+      - name: Retry GitHub Release
+        if: steps.release.outcome == 'failure'
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ needs.detect-game.outputs.game }} v${{ needs.detect-game.outputs.version }}
+          files: artifacts/**/*
+          generate_release_notes: true
+          fail_on_unmatched_files: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

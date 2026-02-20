@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Library only - the CLI is in Catrillion.GameData.Cli -->
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <RootNamespace>GameDocDatabase.Runtime</RootNamespace>
+    <AssemblyName>GameDocDatabase.Runtime</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Annotations\GameDocDatabase.Annotations.csproj" />
+    <ProjectReference Include="..\..\Core\Core.csproj" />
+    <!-- No reference to Catrillion.GameData - this is a generic library -->
+  </ItemGroup>
+
+</Project>

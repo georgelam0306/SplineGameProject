@@ -1,0 +1,30 @@
+{
+  "actionMaps": [
+    {
+      "name": "Camera",
+      "actions": [
+        {
+          "name": "Zoom",
+          "type": "Value",
+          "bindings": [
+            "<Mouse>/scroll"
+          ]
+        },
+        {
+          "name": "MousePosition",
+          "type": "Vector2",
+          "bindings": [
+            "<Mouse>/position"
+          ]
+        },
+        {
+          "name": "ToggleMode",
+          "type": "Button",
+          "bindings": [
+            "<Keyboard>/tab"
+          ]
+        }
+      ]
+    }
+  ]
+}

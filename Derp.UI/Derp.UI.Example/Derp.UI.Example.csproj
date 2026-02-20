@@ -1,0 +1,80 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <AssemblyName>Derp.UI.Example</AssemblyName>
+    <RootNamespace>Derp.UI.Example</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Friflo.Engine.ECS" Version="3.*" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Derp.UI.csproj" />
+    <ProjectReference Include="..\..\Shared\Core\Core.csproj" />
+    <ProjectReference Include="..\..\Shared\Rollback\Rollback.csproj" />
+    <ProjectReference Include="..\..\Shared\DesyncDetection\DesyncDetection.csproj" />
+    <ProjectReference Include="..\..\Shared\SimTable\Annotations\SimTable.Annotations.csproj" />
+    <ProjectReference Include="..\..\Shared\SimTable\Generator\SimTable.Generator.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EngineShaderVertSources Include="..\..\Engine\Content\Shaders\**\*.vert" />
+    <EngineShaderFragSources Include="..\..\Engine\Content\Shaders\**\*.frag" />
+    <EngineShaderComputeSources Include="..\..\Engine\Content\Shaders\**\*.comp" />
+
+    <EngineShaderVertOutputs Include="@(EngineShaderVertSources->'$(TargetDir)data/db/shaders/%(Filename).shader')" />
+    <EngineShaderComputeOutputs Include="@(EngineShaderComputeSources->'$(TargetDir)data/db/shaders/%(Filename).compute')" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EngineFontSources Include="..\..\Engine\Content\db\fonts\*.font" />
+    <EngineFontOutputs Include="@(EngineFontSources->'$(TargetDir)data/db/fonts/%(Filename)%(Extension)')" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="Assets/**">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <TargetPath>data/db/%(RecursiveDir)%(Filename)%(Extension)</TargetPath>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Remove="Outputs/**" />
+  </ItemGroup>
+
+  <Target Name="BuildEngineShadersForDerpUiExample"
+          BeforeTargets="Build"
+          Inputs="@(EngineShaderVertSources);@(EngineShaderFragSources);@(EngineShaderComputeSources)"
+          Outputs="@(EngineShaderVertOutputs);@(EngineShaderComputeOutputs)"
+          Condition="'@(EngineShaderVertSources)' != '' Or '@(EngineShaderComputeSources)' != ''">
+    <PropertyGroup>
+      <_EngineShaderSourceDir>$(MSBuildProjectDirectory)/..\..\Engine\Content\Shaders</_EngineShaderSourceDir>
+      <_DerpUiAssetsOutputDir>$(TargetDir)data</_DerpUiAssetsOutputDir>
+      <_EngineBuildProject>$(MSBuildProjectDirectory)/..\..\Engine\src\Engine.Build\Engine.Build.csproj</_EngineBuildProject>
+    </PropertyGroup>
+
+    <Message Importance="High" Text="Building engine shader database into $(_DerpUiAssetsOutputDir)..." />
+    <Exec Command="dotnet run --project &quot;$(_EngineBuildProject)&quot; -c $(Configuration) -- &quot;$(_EngineShaderSourceDir)&quot; &quot;$(_DerpUiAssetsOutputDir)&quot;" />
+  </Target>
+
+  <Target Name="CopyEngineFontsForDerpUiExample"
+          BeforeTargets="Build"
+          Inputs="@(EngineFontSources)"
+          Outputs="@(EngineFontOutputs)"
+          Condition="'@(EngineFontSources)' != ''">
+    <PropertyGroup>
+      <_DerpUiFontOutputDir>$(TargetDir)data/db/fonts</_DerpUiFontOutputDir>
+    </PropertyGroup>
+
+    <Message Importance="High" Text="Copying engine font database into $(_DerpUiFontOutputDir)..." />
+    <MakeDir Directories="$(_DerpUiFontOutputDir)" />
+    <Copy SourceFiles="@(EngineFontSources)" DestinationFolder="$(_DerpUiFontOutputDir)" SkipUnchangedFiles="true" />
+  </Target>
+
+</Project>

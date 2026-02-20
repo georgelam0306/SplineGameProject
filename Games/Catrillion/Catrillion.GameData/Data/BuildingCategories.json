@@ -1,0 +1,27 @@
+[
+  {
+    "Id": 0,
+    "Name": "Housing",
+    "DisplayOrder": 0
+  },
+  {
+    "Id": 1,
+    "Name": "Economy",
+    "DisplayOrder": 1
+  },
+  {
+    "Id": 2,
+    "Name": "Defense",
+    "DisplayOrder": 2
+  },
+  {
+    "Id": 3,
+    "Name": "Infrastructure",
+    "DisplayOrder": 3
+  },
+  {
+    "Id": 4,
+    "Name": "Research",
+    "DisplayOrder": 4
+  }
+]

@@ -1,0 +1,258 @@
+{
+  "id": "91efa90f-8244-481f-9f9c-98a3de5e08ec",
+  "name": "TestDerived",
+  "columns": [
+    {
+      "id": "445ff6ec-b340-4177-9f49-6c06da05ce4e",
+      "name": "Id",
+      "kind": "Text",
+      "typeId": "core.text",
+      "width": 83.72266,
+      "projected": true
+    },
+    {
+      "id": "0b6c9120-2410-463f-bc80-3344e66f4819",
+      "name": "weapon_index",
+      "kind": "Number",
+      "typeId": "core.number",
+      "width": 104.89844,
+      "projected": true
+    },
+    {
+      "id": "502b08d8-5197-4705-904b-a3fc38411c68",
+      "name": "name",
+      "kind": "Text",
+      "typeId": "core.text",
+      "width": 135.95703,
+      "projected": true
+    },
+    {
+      "id": "692bc582-d83e-48ab-8d78-a7f5cb25a855",
+      "name": "category",
+      "kind": "Select",
+      "typeId": "core.select",
+      "width": 120,
+      "options": [
+        "Sword",
+        "Axe",
+        "Bow",
+        "Dagger",
+        "Spear",
+        "Hammer",
+        "Staff",
+        "Wand",
+        "Crossbow",
+        "Firearm"
+      ],
+      "projected": true
+    },
+    {
+      "id": "cd33b6b5-5ed2-4f4e-b3f8-2118f9f2952c",
+      "name": "rarity",
+      "kind": "Select",
+      "typeId": "core.select",
+      "width": 120,
+      "options": [
+        "Common",
+        "Uncommon",
+        "Rare",
+        "Epic",
+        "Legendary"
+      ],
+      "projected": true
+    },
+    {
+      "id": "dcb10085-74c2-420c-8a7b-4fb78dbcf7fd",
+      "name": "level_required",
+      "kind": "Number",
+      "typeId": "core.number",
+      "width": 120,
+      "projected": true
+    },
+    {
+      "id": "619a18f7-6d06-4552-8741-67639eeb7303",
+      "name": "min_damage",
+      "kind": "Number",
+      "typeId": "core.number",
+      "width": 110,
+      "projected": true
+    },
+    {
+      "id": "bf56d154-9155-4c8c-b6cf-bb5e52c59725",
+      "name": "max_damage",
+      "kind": "Number",
+      "typeId": "core.number",
+      "width": 110,
+      "projected": true
+    },
+    {
+      "id": "68937b9e-fb4a-46b8-8d6d-57a5f4c2adae",
+      "name": "attack_speed",
+      "kind": "Number",
+      "typeId": "core.number",
+      "width": 120,
+      "projected": true
+    },
+    {
+      "id": "4fd2e1d8-b143-4d1d-a8d4-0ad8251eccc4",
+      "name": "crit_chance",
+      "kind": "Number",
+      "typeId": "core.number",
+      "width": 110,
+      "projected": true
+    },
+    {
+      "id": "c49964aa-757a-46b5-a6d2-65aacf260c8e",
+      "name": "element",
+      "kind": "Select",
+      "typeId": "core.select",
+      "width": 110,
+      "options": [
+        "Neutral",
+        "Fire",
+        "Ice",
+        "Lightning",
+        "Poison",
+        "Holy",
+        "Shadow"
+      ],
+      "projected": true
+    },
+    {
+      "id": "c1519f6f-f3af-4518-8ef2-c6d82167584c",
+      "name": "two_handed",
+      "kind": "Checkbox",
+      "typeId": "core.checkbox",
+      "width": 100,
+      "projected": true
+    },
+    {
+      "id": "0f5fae7f-d8ae-454b-8249-c8dbe249c1bf",
+      "name": "value_gold",
+      "kind": "Number",
+      "typeId": "core.number",
+      "width": 110,
+      "projected": true
+    },
+    {
+      "id": "f7dd63bd-ef4f-4d14-80a8-a9da4be8a452",
+      "name": "weight",
+      "kind": "Number",
+      "typeId": "core.number",
+      "width": 90,
+      "projected": true
+    },
+    {
+      "id": "00c31542-e2a1-41ed-9b60-bc0b91114720",
+      "name": "description",
+      "kind": "Text",
+      "typeId": "core.text",
+      "width": 280,
+      "projected": true
+    },
+    {
+      "id": "02198c5e-0fc0-44c2-b263-693d5f065328",
+      "name": "dps",
+      "kind": "Number",
+      "typeId": "core.number",
+      "width": 100,
+      "projected": true
+    }
+  ],
+  "variants": [
+    {
+      "id": 1,
+      "name": "Heroic"
+    },
+    {
+      "id": 2,
+      "name": "Variant 2"
+    }
+  ],
+  "derived": {
+    "baseTableId": "07e29fa3-8b2b-4f3f-b10d-f5324cb11796",
+    "steps": [],
+    "projections": [
+      {
+        "sourceTableId": "07e29fa3-8b2b-4f3f-b10d-f5324cb11796",
+        "sourceColumnId": "57026ff0-66b6-4d1d-afc8-9fdecadfccd0",
+        "outputColumnId": "445ff6ec-b340-4177-9f49-6c06da05ce4e"
+      },
+      {
+        "sourceTableId": "07e29fa3-8b2b-4f3f-b10d-f5324cb11796",
+        "sourceColumnId": "f4c2fbf2-332e-4c9a-aefe-2f6022f0dbdd",
+        "outputColumnId": "0b6c9120-2410-463f-bc80-3344e66f4819"
+      },
+      {
+        "sourceTableId": "07e29fa3-8b2b-4f3f-b10d-f5324cb11796",
+        "sourceColumnId": "2e5600ba-7a49-4ac8-b68a-5b7112baf079",
+        "outputColumnId": "502b08d8-5197-4705-904b-a3fc38411c68"
+      },
+      {
+        "sourceTableId": "07e29fa3-8b2b-4f3f-b10d-f5324cb11796",
+        "sourceColumnId": "5d8ee1de-71f7-4dbf-9e3c-80544f87945a",
+        "outputColumnId": "692bc582-d83e-48ab-8d78-a7f5cb25a855"
+      },
+      {
+        "sourceTableId": "07e29fa3-8b2b-4f3f-b10d-f5324cb11796",
+        "sourceColumnId": "31f91ca2-4ae2-4d43-8f74-b40dc28f67ad",
+        "outputColumnId": "cd33b6b5-5ed2-4f4e-b3f8-2118f9f2952c"
+      },
+      {
+        "sourceTableId": "07e29fa3-8b2b-4f3f-b10d-f5324cb11796",
+        "sourceColumnId": "7a934313-3591-420d-b51f-1f6529693625",
+        "outputColumnId": "dcb10085-74c2-420c-8a7b-4fb78dbcf7fd"
+      },
+      {
+        "sourceTableId": "07e29fa3-8b2b-4f3f-b10d-f5324cb11796",
+        "sourceColumnId": "63c7944b-b0e2-436c-a50b-5598e6c030f6",
+        "outputColumnId": "619a18f7-6d06-4552-8741-67639eeb7303"
+      },
+      {
+        "sourceTableId": "07e29fa3-8b2b-4f3f-b10d-f5324cb11796",
+        "sourceColumnId": "86611c1d-1b98-46a0-ac59-8ca00634e10f",
+        "outputColumnId": "bf56d154-9155-4c8c-b6cf-bb5e52c59725"
+      },
+      {
+        "sourceTableId": "07e29fa3-8b2b-4f3f-b10d-f5324cb11796",
+        "sourceColumnId": "27701136-e488-472a-a014-449258252948",
+        "outputColumnId": "68937b9e-fb4a-46b8-8d6d-57a5f4c2adae"
+      },
+      {
+        "sourceTableId": "07e29fa3-8b2b-4f3f-b10d-f5324cb11796",
+        "sourceColumnId": "66a5ebcb-06a1-4b35-9ed0-cd8590babd14",
+        "outputColumnId": "4fd2e1d8-b143-4d1d-a8d4-0ad8251eccc4"
+      },
+      {
+        "sourceTableId": "07e29fa3-8b2b-4f3f-b10d-f5324cb11796",
+        "sourceColumnId": "ce30830e-cf6d-43b7-b0a0-6cbb7168f181",
+        "outputColumnId": "c49964aa-757a-46b5-a6d2-65aacf260c8e"
+      },
+      {
+        "sourceTableId": "07e29fa3-8b2b-4f3f-b10d-f5324cb11796",
+        "sourceColumnId": "9a7d55a6-73d0-4461-a586-504742bc52cc",
+        "outputColumnId": "c1519f6f-f3af-4518-8ef2-c6d82167584c"
+      },
+      {
+        "sourceTableId": "07e29fa3-8b2b-4f3f-b10d-f5324cb11796",
+        "sourceColumnId": "9732f8c2-c85d-462a-a7b4-d7d224393f8e",
+        "outputColumnId": "0f5fae7f-d8ae-454b-8249-c8dbe249c1bf"
+      },
+      {
+        "sourceTableId": "07e29fa3-8b2b-4f3f-b10d-f5324cb11796",
+        "sourceColumnId": "5fd65d62-9a6f-4f88-9ee3-ae695d20188f",
+        "outputColumnId": "f7dd63bd-ef4f-4d14-80a8-a9da4be8a452"
+      },
+      {
+        "sourceTableId": "07e29fa3-8b2b-4f3f-b10d-f5324cb11796",
+        "sourceColumnId": "52ff88da-201e-4e63-8b9b-a7504f4f30cd",
+        "outputColumnId": "00c31542-e2a1-41ed-9b60-bc0b91114720"
+      },
+      {
+        "sourceTableId": "07e29fa3-8b2b-4f3f-b10d-f5324cb11796",
+        "sourceColumnId": "372e4194-945a-44c9-9096-1d810de7621b",
+        "outputColumnId": "02198c5e-0fc0-44c2-b263-693d5f065328"
+      }
+    ]
+  }
+}

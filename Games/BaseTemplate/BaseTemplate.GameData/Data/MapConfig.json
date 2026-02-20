@@ -1,0 +1,18 @@
+[
+  {
+    "Id": 0,
+    "Name": "Default",
+    "WidthTiles": 256,
+    "HeightTiles": 256,
+    "TileSize": 32,
+    "ChunkSize": 64,
+    "AtlasTileWidth": 16,
+    "AtlasTileHeight": 16,
+    "AtlasColumns": 5,
+    "ChunkLoadRadius": 2,
+    "BottomBarHeight": 120,
+    "NoiseSpilloverMultiplier": 0.1,
+    "NoiseAttractionRadiusPerUnit": 0.5,
+    "NoiseAttractionMinRadius": 128
+  }
+]

@@ -1,0 +1,59 @@
+{
+  "id": "57c5a946-b2ca-4e66-846b-58f5dc96fb28",
+  "name": "DummyTable",
+  "columns": [
+    {
+      "id": "736f4db8-3fe1-437f-9345-eb2412524459",
+      "name": "Yay a table",
+      "kind": "Number",
+      "typeId": "core.number",
+      "width": 150
+    },
+    {
+      "id": "c207a310-ad0e-4fa7-97ac-5620010ddcca",
+      "name": "Column",
+      "kind": "Text",
+      "typeId": "core.text",
+      "width": 150
+    },
+    {
+      "id": "fb7c5d87-5eef-4316-9ad9-c483b049927c",
+      "name": "Number 2",
+      "kind": "Number",
+      "typeId": "core.number",
+      "width": 150
+    },
+    {
+      "id": "d20bfdd2-fe87-4468-b68d-4ec386149eb4",
+      "name": "Number 3",
+      "kind": "Number",
+      "typeId": "core.number",
+      "width": 150
+    },
+    {
+      "id": "1cb82e40-9712-4a5e-b197-dd09c1227444",
+      "name": "Items",
+      "kind": "Subtable",
+      "typeId": "core.subtable",
+      "width": 150,
+      "subtableId": "9e4d75cf-4846-45c3-aa70-338ff08e8710"
+    },
+    {
+      "id": "ac9525a8-aca5-4961-95b3-35fd00771941",
+      "name": "Curve",
+      "kind": "Spline",
+      "typeId": "core.spline",
+      "width": 150
+    }
+  ],
+  "variants": [
+    {
+      "id": 1,
+      "name": "Heroic"
+    },
+    {
+      "id": 2,
+      "name": "Variant 2"
+    }
+  ]
+}

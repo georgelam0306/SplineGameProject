@@ -1,0 +1,84 @@
+{
+  "id": "45bd6c8f-7b13-4604-9180-dd459c93ca93",
+  "name": "Items",
+  "columns": [
+    {
+      "id": "c060af8b-fec1-45c5-892d-7e3b7daced41",
+      "name": "Name",
+      "kind": "Text",
+      "typeId": "core.text",
+      "width": 150
+    },
+    {
+      "id": "13298447-d142-4bf8-b9a6-56bd30c30e8c",
+      "name": "Category",
+      "kind": "Select",
+      "typeId": "core.select",
+      "width": 150,
+      "options": [
+        "Ore",
+        "Building",
+        "Recipe",
+        "Feature",
+        "Alloy",
+        "Client"
+      ]
+    },
+    {
+      "id": "c853d8f4-c423-4b32-8e49-9539a2c7a253",
+      "name": "OreRef",
+      "kind": "Relation",
+      "typeId": "core.relation",
+      "width": 150,
+      "relationTableId": "e5a0e561-fbb4-4638-844d-6ea1762ad166",
+      "relationDisplayColumnId": "9fcd1114-9732-4d48-93cf-588aa4b067ce"
+    },
+    {
+      "id": "53df7874-0fc5-4b69-8b28-c4a6f162ec77",
+      "name": "IngotRef",
+      "kind": "Relation",
+      "typeId": "core.relation",
+      "width": 150,
+      "relationTableId": "0d222a86-8c63-494d-890e-984807011162",
+      "relationDisplayColumnId": "c1edfcfc-6c54-410c-afad-eeb8bbd99041"
+    },
+    {
+      "id": "9a784fe1-2fe7-412e-a667-26af18733d01",
+      "name": "ClientTierRef",
+      "kind": "Relation",
+      "typeId": "core.relation",
+      "width": 150,
+      "relationTableId": "71fa838a-6486-4bf0-a963-87034362d53c",
+      "relationDisplayColumnId": "ac19a614-b04e-4d56-a708-0663d040a822"
+    },
+    {
+      "id": "ec206e94-b06d-49d4-97da-b656c3931c71",
+      "name": "FeatureKey",
+      "kind": "Text",
+      "typeId": "core.text",
+      "width": 150
+    },
+    {
+      "id": "b657d3af-01ba-448b-9836-1ccf372389cb",
+      "name": "RecipeTag",
+      "kind": "Relation",
+      "typeId": "core.relation",
+      "width": 150,
+      "relationTableId": "5f796d79-fe95-47ab-934c-899f112fd3a8",
+      "relationDisplayColumnId": "6a1005ec-bb0a-4d1f-8156-55d30b52aa74"
+    }
+  ],
+  "variants": [
+    {
+      "id": 1,
+      "name": "Heroic"
+    },
+    {
+      "id": 2,
+      "name": "Variant 2"
+    }
+  ],
+  "keys": {
+    "primaryKeyColumnId": "c060af8b-fec1-45c5-892d-7e3b7daced41"
+  }
+}

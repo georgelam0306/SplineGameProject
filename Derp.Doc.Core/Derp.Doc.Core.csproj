@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <AssemblyName>Derp.Doc.Core</AssemblyName>
+    <RootNamespace>Derp.Doc</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Shared\Core\Core.csproj" />
+    <ProjectReference Include="..\Shared\FixedMath\FixedMath.csproj" />
+    <ProjectReference Include="..\Shared\DerpDoc.Runtime\DerpDoc.Runtime.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
+      <_Parameter1>Derp.Doc.Tests</_Parameter1>
+    </AssemblyAttribute>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
+      <_Parameter1>Derp.Doc</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+
+</Project>

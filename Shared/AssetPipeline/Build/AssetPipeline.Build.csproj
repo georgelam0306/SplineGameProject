@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <RootNamespace>Engine.AssetPipeline</RootNamespace>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Serilog" Version="4.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Abstractions\AssetPipeline.Abstractions.csproj" />
+    <ProjectReference Include="..\Core\AssetPipeline.Core.csproj" />
+    <ProjectReference Include="..\Storage\AssetPipeline.Storage.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,48 @@
+# .NET build outputs
+*.binlog
+**/bin/
+**/obj/
+**/Outputs/
+**/publish/
+**/TestResults/
+
+.cursor/
+.vscode/
+.worktrees/
+**/.serena/
+**/_Conversations/
+!_Docs/Derp.Ecs/_Conversations/
+!_Docs/Derp.Ecs/_Conversations/**
+
+# VS/JetBrains
+.vs/
+.idea/
+*.user
+
+# WASM publish bundles
+**/browser-wasm/AppBundle/
+
+# macOS
+.DS_Store
+
+# Emscripten intermediate
+**/wasm/**/for-publish/
+
+# Tiled editor session files (do not commit)
+*.tiled-session
+
+# Art/source asset working files (do not commit)
+*.kra
+publish-server/
+**/publish/
+**/publish-aot/
+
+# Benchmark results
+BenchmarkDotNet.Artifacts/
+
+# Local accidental downloads
+/fa-solid-900.ttf
+
+# Derp.Doc UI/MCP state
+**/.derpdoc-active.json
+**/.derpdoc-live.bin

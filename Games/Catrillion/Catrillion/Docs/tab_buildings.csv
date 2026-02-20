@@ -1,0 +1,41 @@
+Name,Category,HP,DefensiveBarrier,ViewRange,CostGold,CostWood,CostStone,CostIron,CostOil,Energy,Workers,BuildTime,MaintenanceGold,MaintenanceWood,MaintenanceOil,Provides,RequiresResearch
+Command Center,CommandCenter,5000,2500,12,0,0,0,0,0,30,0,0,0,0,0,"10 colonists, 10 workers, 20 food, 200 gold/8h",
+Tent,Housing,60,15,6,30,0,0,0,0,-4,0,21,0,0,0,"4 colonists, 2 workers, 8 gold/8h",
+Cottage,Housing,200,50,6,120,12,0,0,0,-8,0,36,0,0,0,"8 colonists, 4 workers, 18 gold/8h",Wood Workshop
+Stone House,Housing,500,125,6,300,5,10,0,0,-16,0,48,0,0,0,"16 colonists, 8 workers, 40 gold/8h",Stone Workshop
+Hunter Cottage,Resource,160,40,6,80,0,0,0,0,-1,0,0,2,0,0,"1-20 food, 2 colonists",
+Fisherman Cottage,Resource,160,40,6,80,0,0,0,0,-1,0,0,2,0,0,"1-20 food, 2 colonists",
+Farm,Resource,300,75,6,300,30,0,0,0,-4,0,0,20,0,0,"2-64 food, 12 colonists",Wood Workshop
+Advanced Farm,Resource,500,125,7,1200,30,20,20,20,-30,0,0,50,0,0,"4-128 food, 24 colonists",Foundry
+Quarry,Resource,200,50,6,300,30,0,0,0,-4,4,0,6,0,0,"1-10 stone/iron or 20-200 gold",
+Advanced Quarry,Resource,600,150,7,1200,30,0,20,20,-15,6,0,30,0,0,"2-20 stone/iron or 40-400 gold",Foundry
+Sawmill,Resource,200,50,6,300,0,0,0,0,-4,4,0,4,0,0,"1-20 wood/8h",
+Oil Platform,Resource,500,125,7,1200,0,20,20,0,-30,10,0,80,0,0,10 oil,Foundry
+Tesla Tower,Energy,140,35,8,200,10,0,0,0,0,1,30,4,0,0,"Energy radius 8",
+Mill,Energy,200,50,6,300,20,0,0,0,30,4,40,6,0,0,30 energy,
+Advanced Mill,Energy,600,150,7,800,0,0,20,0,60,6,46,30,0,0,60 energy,Foundry
+Power Plant,Energy,800,200,6,800,50,30,0,0,160,8,70,40,10,0,160 energy,Stone Workshop
+Warehouse,Industry,1000,250,7,400,40,40,0,0,-8,10,0,30,0,0,"+20% production in 28x28 area, +50 storage",
+Wood Workshop,Industry,800,200,7,500,40,0,0,0,-10,10,0,16,0,0,"Tier 1 research",
+Stone Workshop,Industry,1000,250,7,1000,40,40,0,0,-20,20,0,40,0,0,"Tier 2 research",Wood Workshop
+Foundry,Industry,1500,375,7,3000,30,50,50,0,-50,40,0,100,0,0,"Tier 3 research",Stone Workshop
+Market,Industry,500,125,7,400,30,40,0,0,-8,8,0,30,0,0,"-20% food consumption in 27x27 area",Wood Workshop
+Inn,Industry,1200,300,9,2000,100,100,0,0,-50,0,0,0,30,0,"+100 workers, +10% gold in 52x52 area",Wood Workshop
+Bank,Industry,1000,250,7,1000,50,50,0,0,-20,12,0,0,0,0,"+30% gold in 27x27 area",Stone Workshop
+Soldiers Center,Military,800,400,7,450,20,20,0,0,-6,8,60,14,0,0,"Train Ranger, Soldier, Sniper",
+Engineering Center,Military,1000,500,7,2000,0,40,40,0,-50,20,60,0,0,0,"Train Lucifer, Thanatos, Titan, Mutant",Foundry
+Lookout Tower,Military,300,75,24,300,10,0,0,0,0,1,0,0,0,0,"24 view range",Wood Workshop
+Radar Tower,Military,500,125,40,800,10,10,10,0,-10,2,0,30,0,0,"40 view range",Foundry
+Great Ballista,Military,1000,500,12,500,20,0,0,0,-2,2,45,15,0,0,"150 dmg, 9 range, AoE 0.3",Wood Workshop
+Executor,Military,2000,1000,12,1200,0,0,30,10,-10,4,45,50,0,0,"100 dmg, 9 range, AoE 0.6",Foundry
+Shocking Tower,Military,1000,500,8,600,30,30,0,0,-30,4,45,20,0,0,"Electric damage",Stone Workshop
+Wasp,Military,300,0,0,320,0,0,10,0,-1,0,32,2,0,0,"Explosive trap",Stone Workshop
+Wood Wall,Defense,400,0,0,10,3,0,0,0,0,0,15,0,0,0,"Stops infected",
+Stone Wall,Defense,1000,0,0,30,0,3,0,0,0,0,30,0,0,0,"Stops infected",Stone Workshop
+Wood Gate,Defense,600,0,0,50,10,0,0,0,0,0,30,0,0,0,"Units can pass",
+Stone Gate,Defense,1500,0,0,200,3,6,0,0,0,0,45,0,0,0,"Units can pass",Stone Workshop
+Wood Tower,Defense,800,0,0,120,10,0,0,0,0,0,39,0,0,0,"+3 range for units inside",
+Stone Tower,Defense,2000,0,0,450,10,10,0,0,0,0,60,0,0,0,"+4 range for units inside",Stone Workshop
+Stakes Trap,Defense,100,0,0,30,3,0,0,0,0,0,15,0,0,0,"Slows and damages zombies",Wood Workshop
+Wire Fence Trap,Defense,200,0,0,100,0,0,3,0,0,0,15,0,0,0,"Slows and damages zombies",Foundry
+Land Mine,Defense,0,0,0,100,0,0,3,0,0,0,1,0,0,0,"Explosive, 0-3s delay",Stone Workshop

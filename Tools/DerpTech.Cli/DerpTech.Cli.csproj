@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+
+    <!-- Dotnet Tool Configuration -->
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>derptech</ToolCommandName>
+    <PackageId>DerpTech.Cli</PackageId>
+    <Version>1.0.0</Version>
+    <Description>DerpTech CLI - Game project scaffolding tool</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.CommandLine" Version="2.0.0-beta4.22272.1" />
+  </ItemGroup>
+
+</Project>

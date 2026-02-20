@@ -1,0 +1,9 @@
+{
+  "views": [
+    {
+      "id": "8b0bd934-0372-4ead-8796-78d55c1fd9e5",
+      "name": "Runtime Demo View",
+      "type": "Grid"
+    }
+  ]
+}

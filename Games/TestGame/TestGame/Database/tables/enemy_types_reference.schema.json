@@ -1,0 +1,48 @@
+{
+  "id": "e0e43cd7-d843-40a1-8d9a-920b3a887a5c",
+  "name": "EnemyTypes Reference",
+  "columns": [
+    {
+      "id": "05e7511c-cf2d-4448-a79d-df1f99e93e77",
+      "name": "Field",
+      "kind": "Text",
+      "typeId": "core.text",
+      "width": 120
+    },
+    {
+      "id": "8ea8f5dc-7075-4964-9c1d-71db38bc53b6",
+      "name": "Type",
+      "kind": "Text",
+      "typeId": "core.text",
+      "width": 80
+    },
+    {
+      "id": "4d07701c-4db3-46af-b479-a3a057758a9c",
+      "name": "Description",
+      "kind": "Text",
+      "typeId": "core.text",
+      "width": 400
+    },
+    {
+      "id": "6144b901-fe96-4795-acba-e279ad68ffb9",
+      "name": "Range",
+      "kind": "Text",
+      "typeId": "core.text",
+      "width": 120
+    }
+  ],
+  "variants": [
+    {
+      "id": 1,
+      "name": "Heroic"
+    },
+    {
+      "id": 2,
+      "name": "Variant 2"
+    },
+    {
+      "id": 3,
+      "name": "Variant 3"
+    }
+  ]
+}

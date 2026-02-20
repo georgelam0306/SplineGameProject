@@ -1,0 +1,343 @@
+{
+  "id": "f3ca3d5d-54ec-44bd-ad87-f3ce3393e2eb",
+  "name": "Derived 16",
+  "columns": [
+    {
+      "id": "e1203477-b28b-4460-815c-513c0dc49c20",
+      "name": "Id",
+      "kind": "Text",
+      "typeId": "core.text",
+      "width": 83.72266,
+      "projected": true
+    },
+    {
+      "id": "9053d1fb-0d64-41d3-a53d-0c167af17d6b",
+      "name": "weapon_index",
+      "kind": "Number",
+      "typeId": "core.number",
+      "width": 104.89844,
+      "projected": true
+    },
+    {
+      "id": "eba959bb-c161-41f9-82df-41032e912baa",
+      "name": "name",
+      "kind": "Text",
+      "typeId": "core.text",
+      "width": 135.95703,
+      "projected": true
+    },
+    {
+      "id": "c8ebe5d0-26df-452d-adae-db3a79dad43e",
+      "name": "category",
+      "kind": "Select",
+      "typeId": "core.select",
+      "width": 120,
+      "options": [
+        "Sword",
+        "Axe",
+        "Bow",
+        "Dagger",
+        "Spear",
+        "Hammer",
+        "Staff",
+        "Wand",
+        "Crossbow",
+        "Firearm"
+      ],
+      "projected": true
+    },
+    {
+      "id": "0aadbd0d-0773-468e-8f0b-a8dd2e64fde4",
+      "name": "rarity",
+      "kind": "Select",
+      "typeId": "core.select",
+      "width": 120,
+      "options": [
+        "Common",
+        "Uncommon",
+        "Rare",
+        "Epic",
+        "Legendary"
+      ],
+      "projected": true
+    },
+    {
+      "id": "3fe5e118-0edd-4419-b14d-b6930821cb6d",
+      "name": "level_required",
+      "kind": "Number",
+      "typeId": "core.number",
+      "width": 120,
+      "projected": true
+    },
+    {
+      "id": "0828bf83-b5bd-4e9b-8c8b-4c1f7dfb849c",
+      "name": "min_damage",
+      "kind": "Number",
+      "typeId": "core.number",
+      "width": 110,
+      "projected": true
+    },
+    {
+      "id": "32a2946e-d7a3-478e-90cf-bffc14b9dbc0",
+      "name": "max_damage",
+      "kind": "Number",
+      "typeId": "core.number",
+      "width": 110,
+      "projected": true
+    },
+    {
+      "id": "a5ca5d15-9c58-4ff1-b21a-84ec4ccb00df",
+      "name": "attack_speed",
+      "kind": "Number",
+      "typeId": "core.number",
+      "width": 120,
+      "projected": true
+    },
+    {
+      "id": "cceab393-e3f9-41fd-bf8c-b38b274cfbab",
+      "name": "crit_chance",
+      "kind": "Number",
+      "typeId": "core.number",
+      "width": 110,
+      "projected": true
+    },
+    {
+      "id": "c152892a-3b99-464f-ac86-d2bd8bb7d933",
+      "name": "element",
+      "kind": "Select",
+      "typeId": "core.select",
+      "width": 110,
+      "options": [
+        "Neutral",
+        "Fire",
+        "Ice",
+        "Lightning",
+        "Poison",
+        "Holy",
+        "Shadow"
+      ],
+      "projected": true
+    },
+    {
+      "id": "6d9eb498-d1e5-42a7-9e2a-4e23c657fca8",
+      "name": "two_handed",
+      "kind": "Checkbox",
+      "typeId": "core.checkbox",
+      "width": 100,
+      "projected": true
+    },
+    {
+      "id": "0e59bf9f-9fdf-48a2-9371-d9cab6c313ae",
+      "name": "value_gold",
+      "kind": "Number",
+      "typeId": "core.number",
+      "width": 110,
+      "projected": true
+    },
+    {
+      "id": "0622ce14-f9a5-4228-9d62-1f5d6e4a063f",
+      "name": "weight",
+      "kind": "Number",
+      "typeId": "core.number",
+      "width": 90,
+      "projected": true
+    },
+    {
+      "id": "ccc0e991-f25d-4d86-ab72-39ff60cc6112",
+      "name": "description",
+      "kind": "Text",
+      "typeId": "core.text",
+      "width": 280,
+      "projected": true
+    },
+    {
+      "id": "5be4206f-19ac-418d-95ea-3e36ec2f4134",
+      "name": "dps",
+      "kind": "Number",
+      "typeId": "core.number",
+      "width": 100,
+      "projected": true
+    },
+    {
+      "id": "3363dc11-31c0-468e-9f15-7080bd8e0ca2",
+      "name": "Yay a table",
+      "kind": "Number",
+      "typeId": "core.number",
+      "width": 150,
+      "projected": true
+    },
+    {
+      "id": "ad1d55e0-47f7-421d-9760-f3e56f2288df",
+      "name": "Column",
+      "kind": "Text",
+      "typeId": "core.text",
+      "width": 150,
+      "projected": true
+    },
+    {
+      "id": "31643c4e-ed5b-44db-ab3b-b640c2d4a045",
+      "name": "Number 2",
+      "kind": "Number",
+      "typeId": "core.number",
+      "width": 150,
+      "projected": true
+    },
+    {
+      "id": "67d21836-e461-4a4f-a4d7-ff8995a066b8",
+      "name": "Number 3",
+      "kind": "Number",
+      "typeId": "core.number",
+      "width": 150,
+      "projected": true
+    },
+    {
+      "id": "81564451-325c-491f-9874-ab63e86a0dc4",
+      "name": "Items",
+      "kind": "Subtable",
+      "typeId": "core.subtable",
+      "width": 150,
+      "projected": true,
+      "subtableId": "9e4d75cf-4846-45c3-aa70-338ff08e8710"
+    },
+    {
+      "id": "e3347a29-17cc-4fa2-99ef-f118268fff51",
+      "name": "Curve",
+      "kind": "Spline",
+      "typeId": "core.spline",
+      "width": 150,
+      "projected": true
+    }
+  ],
+  "variants": [
+    {
+      "id": 1,
+      "name": "Heroic"
+    },
+    {
+      "id": 2,
+      "name": "Variant 2"
+    }
+  ],
+  "derived": {
+    "baseTableId": "07e29fa3-8b2b-4f3f-b10d-f5324cb11796",
+    "steps": [
+      {
+        "id": "ef1aa21a-d525-41b9-aa27-f96c692dc11a",
+        "kind": "Append",
+        "sourceTableId": "57c5a946-b2ca-4e66-846b-58f5dc96fb28"
+      }
+    ],
+    "projections": [
+      {
+        "sourceTableId": "07e29fa3-8b2b-4f3f-b10d-f5324cb11796",
+        "sourceColumnId": "57026ff0-66b6-4d1d-afc8-9fdecadfccd0",
+        "outputColumnId": "e1203477-b28b-4460-815c-513c0dc49c20"
+      },
+      {
+        "sourceTableId": "07e29fa3-8b2b-4f3f-b10d-f5324cb11796",
+        "sourceColumnId": "f4c2fbf2-332e-4c9a-aefe-2f6022f0dbdd",
+        "outputColumnId": "9053d1fb-0d64-41d3-a53d-0c167af17d6b"
+      },
+      {
+        "sourceTableId": "07e29fa3-8b2b-4f3f-b10d-f5324cb11796",
+        "sourceColumnId": "2e5600ba-7a49-4ac8-b68a-5b7112baf079",
+        "outputColumnId": "eba959bb-c161-41f9-82df-41032e912baa"
+      },
+      {
+        "sourceTableId": "07e29fa3-8b2b-4f3f-b10d-f5324cb11796",
+        "sourceColumnId": "5d8ee1de-71f7-4dbf-9e3c-80544f87945a",
+        "outputColumnId": "c8ebe5d0-26df-452d-adae-db3a79dad43e"
+      },
+      {
+        "sourceTableId": "07e29fa3-8b2b-4f3f-b10d-f5324cb11796",
+        "sourceColumnId": "31f91ca2-4ae2-4d43-8f74-b40dc28f67ad",
+        "outputColumnId": "0aadbd0d-0773-468e-8f0b-a8dd2e64fde4"
+      },
+      {
+        "sourceTableId": "07e29fa3-8b2b-4f3f-b10d-f5324cb11796",
+        "sourceColumnId": "7a934313-3591-420d-b51f-1f6529693625",
+        "outputColumnId": "3fe5e118-0edd-4419-b14d-b6930821cb6d"
+      },
+      {
+        "sourceTableId": "07e29fa3-8b2b-4f3f-b10d-f5324cb11796",
+        "sourceColumnId": "63c7944b-b0e2-436c-a50b-5598e6c030f6",
+        "outputColumnId": "0828bf83-b5bd-4e9b-8c8b-4c1f7dfb849c"
+      },
+      {
+        "sourceTableId": "07e29fa3-8b2b-4f3f-b10d-f5324cb11796",
+        "sourceColumnId": "86611c1d-1b98-46a0-ac59-8ca00634e10f",
+        "outputColumnId": "32a2946e-d7a3-478e-90cf-bffc14b9dbc0"
+      },
+      {
+        "sourceTableId": "07e29fa3-8b2b-4f3f-b10d-f5324cb11796",
+        "sourceColumnId": "27701136-e488-472a-a014-449258252948",
+        "outputColumnId": "a5ca5d15-9c58-4ff1-b21a-84ec4ccb00df"
+      },
+      {
+        "sourceTableId": "07e29fa3-8b2b-4f3f-b10d-f5324cb11796",
+        "sourceColumnId": "66a5ebcb-06a1-4b35-9ed0-cd8590babd14",
+        "outputColumnId": "cceab393-e3f9-41fd-bf8c-b38b274cfbab"
+      },
+      {
+        "sourceTableId": "07e29fa3-8b2b-4f3f-b10d-f5324cb11796",
+        "sourceColumnId": "ce30830e-cf6d-43b7-b0a0-6cbb7168f181",
+        "outputColumnId": "c152892a-3b99-464f-ac86-d2bd8bb7d933"
+      },
+      {
+        "sourceTableId": "07e29fa3-8b2b-4f3f-b10d-f5324cb11796",
+        "sourceColumnId": "9a7d55a6-73d0-4461-a586-504742bc52cc",
+        "outputColumnId": "6d9eb498-d1e5-42a7-9e2a-4e23c657fca8"
+      },
+      {
+        "sourceTableId": "07e29fa3-8b2b-4f3f-b10d-f5324cb11796",
+        "sourceColumnId": "9732f8c2-c85d-462a-a7b4-d7d224393f8e",
+        "outputColumnId": "0e59bf9f-9fdf-48a2-9371-d9cab6c313ae"
+      },
+      {
+        "sourceTableId": "07e29fa3-8b2b-4f3f-b10d-f5324cb11796",
+        "sourceColumnId": "5fd65d62-9a6f-4f88-9ee3-ae695d20188f",
+        "outputColumnId": "0622ce14-f9a5-4228-9d62-1f5d6e4a063f"
+      },
+      {
+        "sourceTableId": "07e29fa3-8b2b-4f3f-b10d-f5324cb11796",
+        "sourceColumnId": "52ff88da-201e-4e63-8b9b-a7504f4f30cd",
+        "outputColumnId": "ccc0e991-f25d-4d86-ab72-39ff60cc6112"
+      },
+      {
+        "sourceTableId": "07e29fa3-8b2b-4f3f-b10d-f5324cb11796",
+        "sourceColumnId": "372e4194-945a-44c9-9096-1d810de7621b",
+        "outputColumnId": "5be4206f-19ac-418d-95ea-3e36ec2f4134"
+      },
+      {
+        "sourceTableId": "57c5a946-b2ca-4e66-846b-58f5dc96fb28",
+        "sourceColumnId": "736f4db8-3fe1-437f-9345-eb2412524459",
+        "outputColumnId": "3363dc11-31c0-468e-9f15-7080bd8e0ca2"
+      },
+      {
+        "sourceTableId": "57c5a946-b2ca-4e66-846b-58f5dc96fb28",
+        "sourceColumnId": "c207a310-ad0e-4fa7-97ac-5620010ddcca",
+        "outputColumnId": "ad1d55e0-47f7-421d-9760-f3e56f2288df"
+      },
+      {
+        "sourceTableId": "57c5a946-b2ca-4e66-846b-58f5dc96fb28",
+        "sourceColumnId": "fb7c5d87-5eef-4316-9ad9-c483b049927c",
+        "outputColumnId": "31643c4e-ed5b-44db-ab3b-b640c2d4a045"
+      },
+      {
+        "sourceTableId": "57c5a946-b2ca-4e66-846b-58f5dc96fb28",
+        "sourceColumnId": "d20bfdd2-fe87-4468-b68d-4ec386149eb4",
+        "outputColumnId": "67d21836-e461-4a4f-a4d7-ff8995a066b8"
+      },
+      {
+        "sourceTableId": "57c5a946-b2ca-4e66-846b-58f5dc96fb28",
+        "sourceColumnId": "1cb82e40-9712-4a5e-b197-dd09c1227444",
+        "outputColumnId": "81564451-325c-491f-9874-ab63e86a0dc4"
+      },
+      {
+        "sourceTableId": "57c5a946-b2ca-4e66-846b-58f5dc96fb28",
+        "sourceColumnId": "ac9525a8-aca5-4961-95b3-35fd00771941",
+        "outputColumnId": "e3347a29-17cc-4fa2-99ef-f118268fff51"
+      }
+    ]
+  }
+}

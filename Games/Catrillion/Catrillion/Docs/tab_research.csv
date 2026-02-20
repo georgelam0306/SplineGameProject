@@ -1,0 +1,36 @@
+Name,Tier,Building,CostGold,ResearchTime,Unlocks
+Cottage,1,Wood Workshop,350,75,Housing upgrade
+Farm,1,Wood Workshop,400,75,Food production building
+Stone Workshop,1,Wood Workshop,500,75,Tier 2 research access
+Market,1,Wood Workshop,450,75,Resource trading building
+Lookout Tower,1,Wood Workshop,300,75,Enemy detection tower
+Great Ballista,1,Wood Workshop,700,75,Attack tower
+Stakes Trap,1,Wood Workshop,300,75,Defensive trap
+Sniper,1,Wood Workshop,700,75,Long-range combat unit
+Inn,1,Wood Workshop,1000,0,Gold income boost building
+Silent Beholder,1,Wood Workshop,7000,120,Full map revelation
+Crystal Palace,1,Wood Workshop,6000,0,Population/food/victory boost
+Stone House,2,Stone Workshop,600,75,Advanced dwelling
+Power Plant,2,Stone Workshop,800,75,Energy generation building
+Foundry,2,Stone Workshop,1000,75,Tier 3 research access
+Bank,2,Stone Workshop,800,75,Gold multiplier building
+Stone Wall,2,Stone Workshop,500,75,Defense structures
+Stone Gate,2,Stone Workshop,500,75,Defense gate
+Stone Tower,2,Stone Workshop,500,75,Protected garrison tower
+Shocking Tower,2,Stone Workshop,900,75,Electric defense tower
+Land Mine,2,Stone Workshop,300,0,Area damage trap
+Wasp,2,Stone Workshop,0,0,Explosive trap
+Victorious,2,Stone Workshop,7000,0,Gold boost and victory points
+Academy of Immortals,2,Stone Workshop,7000,0,Veteran units
+Advanced Farm,3,Foundry,1200,75,Enhanced food production
+Advanced Quarry,3,Foundry,1200,75,Enhanced resource extraction
+Advanced Mill,3,Foundry,800,75,Enhanced energy generation
+Oil Platform,3,Foundry,1200,75,Oil extraction
+Engineering Center,3,Foundry,2000,75,Elite unit production
+Radar Tower,3,Foundry,800,75,Extended view range
+Executor,3,Foundry,3000,75,Advanced attack tower
+Wire Fence Trap,3,Foundry,0,0,Advanced defensive trap
+Lucifer,3,Foundry,1200,75,Flamethrower unit
+Thanatos,3,Foundry,2000,75,Bazooka unit
+Titan,3,Foundry,6000,75,Heavy ranged unit
+Mutant,3,Foundry,8000,75,Melee tank unit

@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "derpdoc": {
+      "command": "dotnet",
+      "args": [
+        "run",
+        "--project",
+        "Tools/DerpDoc.Cli",
+        "--",
+        "mcp",
+        "--workspace",
+        "."
+      ]
+    }
+  }
+}

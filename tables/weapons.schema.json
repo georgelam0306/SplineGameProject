@@ -1,0 +1,101 @@
+{
+  "id": "798aa6b8-8385-4838-b146-30781d54ef6f",
+  "name": "Weapons",
+  "columns": [
+    {
+      "id": "e979f86c-3e93-44b0-9ba6-a68eddf7860e",
+      "name": "Id",
+      "kind": "Text",
+      "width": 140
+    },
+    {
+      "id": "dbac72cc-eafc-421e-b0ce-730848e5915a",
+      "name": "Name",
+      "kind": "Text",
+      "width": 220
+    },
+    {
+      "id": "79812057-cc2a-44ef-bc6a-87d3c7905adf",
+      "name": "Category",
+      "kind": "Select",
+      "width": 140,
+      "options": [
+        "Sword",
+        "Axe",
+        "Dagger",
+        "Spear",
+        "Hammer",
+        "Bow",
+        "Staff"
+      ]
+    },
+    {
+      "id": "3fea9584-40a0-4f49-8e8e-3a2be92fe93a",
+      "name": "DamageMin",
+      "kind": "Number",
+      "width": 110
+    },
+    {
+      "id": "9c05e19a-8d01-4a31-a703-c203f19623e2",
+      "name": "DamageMax",
+      "kind": "Number",
+      "width": 110
+    },
+    {
+      "id": "959be58a-5c61-44d3-a616-10491ef0718a",
+      "name": "RangeMeters",
+      "kind": "Number",
+      "width": 120
+    },
+    {
+      "id": "4ee40097-ecee-4962-b581-aa0990bfeeca",
+      "name": "AttackSpeed",
+      "kind": "Number",
+      "width": 120
+    },
+    {
+      "id": "c8610eb6-a97e-4085-ac83-790c16b236f2",
+      "name": "Weight",
+      "kind": "Number",
+      "width": 100
+    },
+    {
+      "id": "16b8dc6c-871b-481e-97bc-348a22b7eea9",
+      "name": "Rarity",
+      "kind": "Select",
+      "width": 130,
+      "options": [
+        "Common",
+        "Uncommon",
+        "Rare",
+        "Epic",
+        "Legendary"
+      ]
+    },
+    {
+      "id": "061e3ce9-193c-48b4-830d-5395a3a7a19f",
+      "name": "IsTwoHanded",
+      "kind": "Checkbox",
+      "width": 130
+    },
+    {
+      "id": "32a2450e-ed01-4ecf-b8ca-b6be2f551267",
+      "name": "Description",
+      "kind": "Text",
+      "width": 360
+    },
+    {
+      "id": "7815c3d6-bfa2-45a9-a29e-11e126b72d8e",
+      "name": "WeaponId",
+      "kind": "Number",
+      "width": 100
+    }
+  ],
+  "export": {
+    "enabled": true,
+    "tableName": "Weapons"
+  },
+  "keys": {
+    "primaryKeyColumnId": "7815c3d6-bfa2-45a9-a29e-11e126b72d8e"
+  }
+}

@@ -1,0 +1,51 @@
+{
+  "id": "a7adeced-d1e7-40a7-a9e7-00ed249b89da",
+  "name": "packages",
+  "columns": [
+    {
+      "id": "package_id",
+      "name": "PackageId",
+      "kind": "Number",
+      "typeId": "core.number",
+      "width": 100,
+      "exportType": "int"
+    },
+    {
+      "id": "name",
+      "name": "Name",
+      "kind": "Text",
+      "typeId": "core.text",
+      "width": 220
+    },
+    {
+      "id": "default_load_from",
+      "name": "DefaultLoadFrom",
+      "kind": "Select",
+      "typeId": "core.select",
+      "width": 140,
+      "options": [
+        "Disk",
+        "CDN"
+      ]
+    },
+    {
+      "id": "cdn_base_uri",
+      "name": "CdnBaseUri",
+      "kind": "Text",
+      "typeId": "core.text",
+      "width": 260
+    },
+    {
+      "id": "output_path",
+      "name": "OutputPath",
+      "kind": "Text",
+      "typeId": "core.text",
+      "width": 240
+    }
+  ],
+  "keys": {
+    "primaryKeyColumnId": "package_id"
+  },
+  "systemKey": "system.packages",
+  "systemSchemaLocked": true
+}

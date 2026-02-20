@@ -1,0 +1,50 @@
+{
+  "id": "d642c738-e71d-4a22-b12c-8fc622c9a486",
+  "name": "DummyTable_Items (copy)",
+  "columns": [
+    {
+      "id": "9e9055d0-5b45-421f-a749-babc5b618609",
+      "name": "_parentRowId",
+      "kind": "Text",
+      "width": 100,
+      "hidden": true
+    },
+    {
+      "id": "ebcf2dd5-8aa0-4d65-bfdb-02f276c2ac3f",
+      "name": "Item",
+      "kind": "Text",
+      "width": 56
+    },
+    {
+      "id": "5d385e5d-f67f-4c62-87f3-72e91cf40318",
+      "name": "Model",
+      "kind": "MeshAsset",
+      "width": 150,
+      "modelPreview": {
+        "orbitYawDegrees": 7.257538,
+        "orbitPitchDegrees": -87.17181,
+        "panX": -0.021854877,
+        "panY": 0.15645194,
+        "zoom": 1.1305922
+      }
+    },
+    {
+      "id": "5f5ffae8-5676-496e-9f36-3006fb9706a5",
+      "name": "Texture",
+      "kind": "TextureAsset",
+      "width": 150
+    },
+    {
+      "id": "586f5ab8-a888-4fa8-931f-194821bcdafa",
+      "name": "Number",
+      "kind": "Number",
+      "width": 150
+    },
+    {
+      "id": "05968723-37f0-4c84-986f-ebec63a6fe54",
+      "name": "Number 2",
+      "kind": "Number",
+      "width": 150
+    }
+  ]
+}

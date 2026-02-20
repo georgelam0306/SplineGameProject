@@ -1,0 +1,72 @@
+{
+  "id": "dd237493-0dbb-42a1-b013-2ba3af229fee",
+  "name": "Buildings",
+  "columns": [
+    {
+      "id": "ce3bb51e-2080-41fd-bc15-ae8673999be4",
+      "name": "Name",
+      "kind": "Text",
+      "typeId": "core.text",
+      "width": 150
+    },
+    {
+      "id": "b32612d8-440f-48b2-9568-7b16221ce1f8",
+      "name": "Description",
+      "kind": "Text",
+      "typeId": "core.text",
+      "width": 150
+    },
+    {
+      "id": "097b9f71-4a9d-4714-8111-f9d286314a92",
+      "name": "BaseCost",
+      "kind": "Number",
+      "typeId": "core.number",
+      "width": 150
+    },
+    {
+      "id": "7cac4e6e-3887-43df-beff-0c11fa51ffcc",
+      "name": "CostScaling",
+      "kind": "Number",
+      "typeId": "core.number",
+      "width": 150
+    },
+    {
+      "id": "4ee67313-78d2-48d5-8855-74a2dcac2454",
+      "name": "MaxSlots",
+      "kind": "Number",
+      "typeId": "core.number",
+      "width": 150
+    },
+    {
+      "id": "833892d6-adb9-4c1c-98be-f9c98bf4c74f",
+      "name": "BaseSpeedSec",
+      "kind": "Number",
+      "typeId": "core.number",
+      "width": 150
+    },
+    {
+      "id": "293bd27e-0fb3-454c-b8bd-e258060f1e2e",
+      "name": "SpeedBoostPerLevel",
+      "kind": "Number",
+      "typeId": "core.number",
+      "width": 150
+    },
+    {
+      "id": "6bf048ca-1f61-478d-8e98-535efa6737ed",
+      "name": "UnlockRepLevel",
+      "kind": "Number",
+      "typeId": "core.number",
+      "width": 150
+    }
+  ],
+  "variants": [
+    {
+      "id": 1,
+      "name": "Heroic"
+    },
+    {
+      "id": 2,
+      "name": "Variant 2"
+    }
+  ]
+}

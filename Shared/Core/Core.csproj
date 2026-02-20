@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <Configurations>Debug;Release;Editor</Configurations>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Friflo.Engine.ECS" Version="3.*" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SimTable\Annotations\SimTable.Annotations.csproj" />
+    <ProjectReference Include="..\FixedMath\FixedMath.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="FixedMath" />
+  </ItemGroup>
+</Project>

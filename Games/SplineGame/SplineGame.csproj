@@ -1,0 +1,55 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <AssemblyName>DerpTech.SplineGame</AssemblyName>
+    <RootNamespace>SplineGame</RootNamespace>
+    <DerpDocCliProject>$(MSBuildProjectDirectory)/../../Tools/DerpDoc.Cli/DerpDoc.Cli.csproj</DerpDocCliProject>
+    <DerpDocDatabaseRoot>$(MSBuildProjectDirectory)/Database</DerpDocDatabaseRoot>
+    <DerpDocGeneratedDir>$(MSBuildProjectDirectory)/obj/DerpDocGenerated</DerpDocGeneratedDir>
+    <DerpDocBinaryPath>$(MSBuildProjectDirectory)/Resources/Database/SplineGame.derpdoc</DerpDocBinaryPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Engine\src\Engine\Engine.csproj" />
+    <ProjectReference Include="..\..\Shared\DerpDoc.Runtime\DerpDoc.Runtime.csproj" />
+    <ProjectReference Include="..\..\Shared\FixedMath\FixedMath.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EngineFontSources Include="..\..\Engine\Content\db\fonts\*.font" />
+    <EngineFontOutputs Include="@(EngineFontSources->'$(TargetDir)data/db/fonts/%(Filename)%(Extension)')" />
+  </ItemGroup>
+
+  <Target Name="ExportDerpDocDatabase"
+          BeforeTargets="CoreCompile"
+          Inputs="$(DerpDocDatabaseRoot)/project.json;$(DerpDocDatabaseRoot)/tables/**/*.json*"
+          Outputs="$(DerpDocGeneratedDir)/GameDatabase.g.cs;$(DerpDocBinaryPath)">
+    <RemoveDir Directories="$(DerpDocGeneratedDir)" />
+    <MakeDir Directories="$(DerpDocGeneratedDir);$(MSBuildProjectDirectory)/Resources/Database;$(TargetDir)Resources/Database" />
+    <Exec Command="dotnet run --project &quot;$(DerpDocCliProject)&quot; -- export &quot;$(DerpDocDatabaseRoot)&quot; --generated &quot;$(DerpDocGeneratedDir)&quot; --bin &quot;$(DerpDocBinaryPath)&quot; --no-manifest" />
+    <ItemGroup>
+      <Compile Include="$(DerpDocGeneratedDir)/*.g.cs" />
+    </ItemGroup>
+    <Copy SourceFiles="$(DerpDocBinaryPath)" DestinationFolder="$(TargetDir)Resources/Database" SkipUnchangedFiles="true" />
+  </Target>
+
+  <Target Name="CopyEngineFontsForSplineGame"
+          BeforeTargets="Build"
+          Inputs="@(EngineFontSources)"
+          Outputs="@(EngineFontOutputs)"
+          Condition="'@(EngineFontSources)' != ''">
+    <PropertyGroup>
+      <_SplineGameFontOutputDir>$(TargetDir)data/db/fonts</_SplineGameFontOutputDir>
+    </PropertyGroup>
+
+    <Message Importance="High" Text="Copying engine fonts into $(_SplineGameFontOutputDir)..." />
+    <MakeDir Directories="$(_SplineGameFontOutputDir)" />
+    <Copy SourceFiles="@(EngineFontSources)" DestinationFolder="$(_SplineGameFontOutputDir)" SkipUnchangedFiles="true" />
+  </Target>
+
+</Project>

@@ -1,0 +1,272 @@
+[
+  {
+    "Id": 0,
+    "Name": "BaseTech",
+    "GoldGenMult": 0.0,
+    "WoodGenMult": 0.0,
+    "StoneGenMult": 0.0,
+    "IronGenMult": 0.0,
+    "OilGenMult": 0.0,
+    "FoodGenMult": 0.0
+  },
+  {
+    "Id": 1,
+    "Name": "CottageUnlock",
+    "GoldGenMult": 0.0,
+    "WoodGenMult": 0.0,
+    "StoneGenMult": 0.0,
+    "IronGenMult": 0.0,
+    "OilGenMult": 0.0,
+    "FoodGenMult": 0.0
+  },
+  {
+    "Id": 2,
+    "Name": "FarmUnlock",
+    "GoldGenMult": 0.0,
+    "WoodGenMult": 0.0,
+    "StoneGenMult": 0.0,
+    "IronGenMult": 0.0,
+    "OilGenMult": 0.0,
+    "FoodGenMult": 0.0
+  },
+  {
+    "Id": 3,
+    "Name": "StoneWorkshopUnlock",
+    "GoldGenMult": 0.0,
+    "WoodGenMult": 0.0,
+    "StoneGenMult": 0.0,
+    "IronGenMult": 0.0,
+    "OilGenMult": 0.0,
+    "FoodGenMult": 0.0
+  },
+  {
+    "Id": 4,
+    "Name": "MarketUnlock",
+    "GoldGenMult": 0.0,
+    "WoodGenMult": 0.0,
+    "StoneGenMult": 0.0,
+    "IronGenMult": 0.0,
+    "OilGenMult": 0.0,
+    "FoodGenMult": 0.0
+  },
+  {
+    "Id": 5,
+    "Name": "LookoutTowerUnlock",
+    "GoldGenMult": 0.0,
+    "WoodGenMult": 0.0,
+    "StoneGenMult": 0.0,
+    "IronGenMult": 0.0,
+    "OilGenMult": 0.0,
+    "FoodGenMult": 0.0
+  },
+  {
+    "Id": 6,
+    "Name": "GreatBallistaUnlock",
+    "GoldGenMult": 0.0,
+    "WoodGenMult": 0.0,
+    "StoneGenMult": 0.0,
+    "IronGenMult": 0.0,
+    "OilGenMult": 0.0,
+    "FoodGenMult": 0.0
+  },
+  {
+    "Id": 7,
+    "Name": "SniperUnlock",
+    "GoldGenMult": 0.0,
+    "WoodGenMult": 0.0,
+    "StoneGenMult": 0.0,
+    "IronGenMult": 0.0,
+    "OilGenMult": 0.0,
+    "FoodGenMult": 0.0
+  },
+  {
+    "Id": 8,
+    "Name": "StoneHouseUnlock",
+    "GoldGenMult": 0.0,
+    "WoodGenMult": 0.0,
+    "StoneGenMult": 0.0,
+    "IronGenMult": 0.0,
+    "OilGenMult": 0.0,
+    "FoodGenMult": 0.0
+  },
+  {
+    "Id": 9,
+    "Name": "PowerPlantUnlock",
+    "GoldGenMult": 0.0,
+    "WoodGenMult": 0.0,
+    "StoneGenMult": 0.0,
+    "IronGenMult": 0.0,
+    "OilGenMult": 0.0,
+    "FoodGenMult": 0.0
+  },
+  {
+    "Id": 10,
+    "Name": "FoundryUnlock",
+    "GoldGenMult": 0.0,
+    "WoodGenMult": 0.0,
+    "StoneGenMult": 0.0,
+    "IronGenMult": 0.0,
+    "OilGenMult": 0.0,
+    "FoodGenMult": 0.0
+  },
+  {
+    "Id": 11,
+    "Name": "BankUnlock",
+    "GoldGenMult": 0.0,
+    "WoodGenMult": 0.0,
+    "StoneGenMult": 0.0,
+    "IronGenMult": 0.0,
+    "OilGenMult": 0.0,
+    "FoodGenMult": 0.0
+  },
+  {
+    "Id": 12,
+    "Name": "StoneWallUnlock",
+    "GoldGenMult": 0.0,
+    "WoodGenMult": 0.0,
+    "StoneGenMult": 0.0,
+    "IronGenMult": 0.0,
+    "OilGenMult": 0.0,
+    "FoodGenMult": 0.0
+  },
+  {
+    "Id": 13,
+    "Name": "StoneGateUnlock",
+    "GoldGenMult": 0.0,
+    "WoodGenMult": 0.0,
+    "StoneGenMult": 0.0,
+    "IronGenMult": 0.0,
+    "OilGenMult": 0.0,
+    "FoodGenMult": 0.0
+  },
+  {
+    "Id": 14,
+    "Name": "StoneTowerUnlock",
+    "GoldGenMult": 0.0,
+    "WoodGenMult": 0.0,
+    "StoneGenMult": 0.0,
+    "IronGenMult": 0.0,
+    "OilGenMult": 0.0,
+    "FoodGenMult": 0.0
+  },
+  {
+    "Id": 15,
+    "Name": "ShockingTowerUnlock",
+    "GoldGenMult": 0.0,
+    "WoodGenMult": 0.0,
+    "StoneGenMult": 0.0,
+    "IronGenMult": 0.0,
+    "OilGenMult": 0.0,
+    "FoodGenMult": 0.0
+  },
+  {
+    "Id": 16,
+    "Name": "AdvancedFarmUnlock",
+    "GoldGenMult": 0.0,
+    "WoodGenMult": 0.0,
+    "StoneGenMult": 0.0,
+    "IronGenMult": 0.0,
+    "OilGenMult": 0.0,
+    "FoodGenMult": 0.0
+  },
+  {
+    "Id": 17,
+    "Name": "AdvancedQuarryUnlock",
+    "GoldGenMult": 0.0,
+    "WoodGenMult": 0.0,
+    "StoneGenMult": 0.0,
+    "IronGenMult": 0.0,
+    "OilGenMult": 0.0,
+    "FoodGenMult": 0.0
+  },
+  {
+    "Id": 18,
+    "Name": "AdvancedMillUnlock",
+    "GoldGenMult": 0.0,
+    "WoodGenMult": 0.0,
+    "StoneGenMult": 0.0,
+    "IronGenMult": 0.0,
+    "OilGenMult": 0.0,
+    "FoodGenMult": 0.0
+  },
+  {
+    "Id": 19,
+    "Name": "OilPlatformUnlock",
+    "GoldGenMult": 0.0,
+    "WoodGenMult": 0.0,
+    "StoneGenMult": 0.0,
+    "IronGenMult": 0.0,
+    "OilGenMult": 0.0,
+    "FoodGenMult": 0.0
+  },
+  {
+    "Id": 20,
+    "Name": "EngineeringCenterUnlock",
+    "GoldGenMult": 0.0,
+    "WoodGenMult": 0.0,
+    "StoneGenMult": 0.0,
+    "IronGenMult": 0.0,
+    "OilGenMult": 0.0,
+    "FoodGenMult": 0.0
+  },
+  {
+    "Id": 21,
+    "Name": "RadarTowerUnlock",
+    "GoldGenMult": 0.0,
+    "WoodGenMult": 0.0,
+    "StoneGenMult": 0.0,
+    "IronGenMult": 0.0,
+    "OilGenMult": 0.0,
+    "FoodGenMult": 0.0
+  },
+  {
+    "Id": 22,
+    "Name": "ExecutorUnlock",
+    "GoldGenMult": 0.0,
+    "WoodGenMult": 0.0,
+    "StoneGenMult": 0.0,
+    "IronGenMult": 0.0,
+    "OilGenMult": 0.0,
+    "FoodGenMult": 0.0
+  },
+  {
+    "Id": 23,
+    "Name": "LuciferUnlock",
+    "GoldGenMult": 0.0,
+    "WoodGenMult": 0.0,
+    "StoneGenMult": 0.0,
+    "IronGenMult": 0.0,
+    "OilGenMult": 0.0,
+    "FoodGenMult": 0.0
+  },
+  {
+    "Id": 24,
+    "Name": "ThanatosUnlock",
+    "GoldGenMult": 0.0,
+    "WoodGenMult": 0.0,
+    "StoneGenMult": 0.0,
+    "IronGenMult": 0.0,
+    "OilGenMult": 0.0,
+    "FoodGenMult": 0.0
+  },
+  {
+    "Id": 25,
+    "Name": "TitanUnlock",
+    "GoldGenMult": 0.0,
+    "WoodGenMult": 0.0,
+    "StoneGenMult": 0.0,
+    "IronGenMult": 0.0,
+    "OilGenMult": 0.0,
+    "FoodGenMult": 0.0
+  },
+  {
+    "Id": 26,
+    "Name": "MutantUnlock",
+    "GoldGenMult": 0.0,
+    "WoodGenMult": 0.0,
+    "StoneGenMult": 0.0,
+    "IronGenMult": 0.0,
+    "OilGenMult": 0.0,
+    "FoodGenMult": 0.0
+  }
+]

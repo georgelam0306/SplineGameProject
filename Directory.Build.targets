@@ -1,0 +1,95 @@
+<Project>
+  <Target Name="SetGitVersionInfo" BeforeTargets="GetAssemblyVersion" Condition="'$(GitCommitHash)' == ''">
+    <!-- Get commit hash -->
+    <Exec Command="git rev-parse HEAD" ConsoleToMSBuild="true" StandardOutputImportance="low" IgnoreExitCode="true">
+      <Output TaskParameter="ConsoleOutput" PropertyName="GitCommitHash" />
+    </Exec>
+    <Exec Command="git rev-parse --short HEAD" ConsoleToMSBuild="true" StandardOutputImportance="low" IgnoreExitCode="true">
+      <Output TaskParameter="ConsoleOutput" PropertyName="GitCommitHashShort" />
+    </Exec>
+
+    <!-- Get version from latest catrillion tag (e.g., catrillion-v0.1.6 -> 0.1.6) -->
+    <Exec Command="git describe --tags --match 'catrillion-v*' --abbrev=0 2>/dev/null | sed 's/catrillion-v//'"
+          ConsoleToMSBuild="true" StandardOutputImportance="low" IgnoreExitCode="true"
+          Condition="'$(Version)' == ''">
+      <Output TaskParameter="ConsoleOutput" PropertyName="GitTagVersion" />
+    </Exec>
+
+    <PropertyGroup Condition="'$(GitCommitHash)' != ''">
+      <SourceRevisionId>$(GitCommitHash)</SourceRevisionId>
+      <!-- Use git tag version if available, otherwise fall back to Version property or 0.0.0 -->
+      <Version Condition="'$(Version)' == '' And '$(GitTagVersion)' != ''">$(GitTagVersion)</Version>
+      <Version Condition="'$(Version)' == ''">0.0.0</Version>
+      <InformationalVersion>$(Version)+$(GitCommitHashShort)</InformationalVersion>
+    </PropertyGroup>
+  </Target>
+
+  <PropertyGroup>
+    <DerpEcsUgcToolProject Condition="'$(DerpEcsUgcToolProject)' == ''">$(MSBuildThisFileDirectory)Tools/DerpEcs.UgcCodegen/DerpEcs.UgcCodegen.csproj</DerpEcsUgcToolProject>
+    <DerpEcsUgcGeneratedDir Condition="'$(DerpEcsUgcGeneratedDir)' == ''">$(IntermediateOutputPath)DerpEcsUgcGenerated/</DerpEcsUgcGeneratedDir>
+
+    <DerpDocToolProject Condition="'$(DerpDocToolProject)' == ''">$(MSBuildThisFileDirectory)Tools/DerpDoc.Cli/DerpDoc.Cli.csproj</DerpDocToolProject>
+    <DerpDocOutputDir Condition="'$(DerpDocOutputDir)' == ''">$(IntermediateOutputPath)DerpDocGenerated/</DerpDocOutputDir>
+    <DerpDocBinaryName Condition="'$(DerpDocBinaryName)' == ''">$(AssemblyName).derpdoc</DerpDocBinaryName>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(DerpDocProject)' != ''">
+    <DerpDocInput Include="$(DerpDocProject)/project.json" />
+    <DerpDocInput Include="$(DerpDocProject)/tables/**/*.schema.json" />
+    <DerpDocInput Include="$(DerpDocProject)/tables/**/*.rows.jsonl" />
+    <DerpDocInput Include="$(DerpDocProject)/tables/**/*.own-data.jsonl" />
+
+    <ProjectReference Include="$(MSBuildThisFileDirectory)Shared/GameDocDatabase/Runtime/GameDocDatabase.Runtime.csproj" />
+    <ProjectReference Include="$(MSBuildThisFileDirectory)Shared/Core/Core.csproj" />
+    <ProjectReference Include="$(MSBuildThisFileDirectory)Shared/FixedMath/FixedMath.csproj" />
+  </ItemGroup>
+
+  <Target
+    Name="DerpDocExport"
+    BeforeTargets="DerpDocInclude"
+    Condition="'$(DerpDocProject)' != ''"
+    Inputs="@(DerpDocInput)"
+    Outputs="$(DerpDocOutputDir)stamp">
+    <MakeDir Directories="$(DerpDocOutputDir)" />
+    <Exec
+      Command="dotnet run --project &quot;$(DerpDocToolProject)&quot; --configuration $(Configuration) -- export &quot;$(DerpDocProject)&quot; --generated &quot;$(DerpDocOutputDir)&quot; --bin &quot;$(DerpDocOutputDir)$(DerpDocBinaryName)&quot;" />
+    <WriteLinesToFile File="$(DerpDocOutputDir)stamp" Lines="@(DerpDocInput)" Overwrite="true" />
+  </Target>
+
+  <Target
+    Name="DerpDocInclude"
+    BeforeTargets="CoreCompile;AssignTargetPaths"
+    DependsOnTargets="DerpDocExport"
+    Condition="'$(DerpDocProject)' != ''">
+    <ItemGroup>
+      <Compile Include="$(DerpDocOutputDir)**\*.g.cs" />
+      <Content Include="$(DerpDocOutputDir)$(DerpDocBinaryName)" CopyToOutputDirectory="PreserveNewest" />
+      <Content Include="$(DerpDocOutputDir)$(DerpDocBinaryName).manifest.json" CopyToOutputDirectory="PreserveNewest" Condition="Exists('$(DerpDocOutputDir)$(DerpDocBinaryName).manifest.json')" />
+    </ItemGroup>
+  </Target>
+
+  <Target
+    Name="DerpEcsUgcCodegen"
+    BeforeTargets="DerpEcsUgcInclude"
+    Condition="'@(DerpEcsUgcSchema)' != ''"
+    Inputs="@(DerpEcsUgcSchema)"
+    Outputs="$(DerpEcsUgcGeneratedDir)stamp">
+    <MakeDir Directories="$(DerpEcsUgcGeneratedDir)" />
+    <Exec
+      Command="dotnet run --project &quot;$(DerpEcsUgcToolProject)&quot; --configuration $(Configuration) -- --out &quot;$(DerpEcsUgcGeneratedDir)&quot; @(DerpEcsUgcSchema->'--input &quot;%(FullPath)&quot;', ' ')" />
+    <WriteLinesToFile File="$(DerpEcsUgcGeneratedDir)stamp" Lines="@(DerpEcsUgcSchema)" Overwrite="true" />
+  </Target>
+
+  <Target
+    Name="DerpEcsUgcInclude"
+    BeforeTargets="CoreCompile;AssignTargetPaths"
+    DependsOnTargets="DerpEcsUgcCodegen"
+    Condition="'@(DerpEcsUgcSchema)' != ''">
+    <ItemGroup>
+      <Compile Include="$(DerpEcsUgcGeneratedDir)**\*.g.cs" />
+      <Content Include="$(DerpEcsUgcGeneratedDir)**\*.derpentitydata"
+               CopyToOutputDirectory="PreserveNewest"
+               Link="%(Filename)%(Extension)" />
+    </ItemGroup>
+  </Target>
+</Project>

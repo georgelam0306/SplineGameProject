@@ -1,0 +1,131 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      games_list: ${{ steps.detect.outputs.games_list }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Need history to detect changes
+
+      - name: Detect changed games
+        id: detect
+        run: |
+          # Get changed files
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            CHANGED=$(git diff --name-only origin/${{ github.base_ref }}...HEAD)
+          else
+            CHANGED=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || git ls-files)
+          fi
+
+          echo "Changed files:"
+          echo "$CHANGED"
+
+          # Check if shared code changed (excludes engine-specific paths)
+          SHARED_CHANGED=false
+          # Filter out engine-specific files before checking
+          SHARED_FILES=$(echo "$CHANGED" | grep -E '^(Shared/|Services/|scripts/|\.github/)' | grep -vE '(Engine/|publish-engine|release-engine)' || true)
+          if [ -n "$SHARED_FILES" ]; then
+            SHARED_CHANGED=true
+            echo "Shared code changed - will build all games"
+            echo "$SHARED_FILES"
+          fi
+
+          # Discover all games
+          ALL_GAMES=$(ls -1 Games/ 2>/dev/null | tr '\n' ' ')
+          echo "All games: $ALL_GAMES"
+
+          # Build list of games to test
+          GAMES=()
+          for GAME in $ALL_GAMES; do
+            if [ "$SHARED_CHANGED" == "true" ]; then
+              GAMES+=("$GAME")
+            elif echo "$CHANGED" | grep -q "^Games/$GAME/"; then
+              GAMES+=("$GAME")
+            fi
+          done
+
+          # Convert to JSON array
+          if [ ${#GAMES[@]} -eq 0 ]; then
+            echo "games_list=[]" >> $GITHUB_OUTPUT
+            echo "No games to build"
+          else
+            JSON=$(printf '%s\n' "${GAMES[@]}" | jq -R . | jq -s -c .)
+            echo "games_list=$JSON" >> $GITHUB_OUTPUT
+            echo "Games to build: ${GAMES[*]}"
+          fi
+
+  build:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.games_list != '[]'
+    name: Build ${{ matrix.game }} (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        game: ${{ fromJson(needs.detect-changes.outputs.games_list) }}
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 9.0
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
+          restore-keys: ${{ runner.os }}-nuget-
+
+      - name: Build game
+        shell: bash
+        run: ./scripts/build-game.sh ${{ matrix.game }} -c Release
+
+  test:
+    needs: [detect-changes, build]
+    if: needs.detect-changes.outputs.games_list != '[]'
+    name: Test ${{ matrix.game }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        game: ${{ fromJson(needs.detect-changes.outputs.games_list) }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 9.0
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
+          restore-keys: ${{ runner.os }}-nuget-
+
+      - name: Run tests
+        shell: bash
+        run: ./scripts/test-game.sh ${{ matrix.game }} -c Release
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-${{ matrix.game }}
+          path: Games/${{ matrix.game }}/**/TestResults/
+          retention-days: 7

@@ -1,0 +1,51 @@
+{
+  "id": "6e89dbd2-dc3e-42cd-bb8b-68598e4dfeb7",
+  "name": "QualityTiers",
+  "columns": [
+    {
+      "id": "db2ec50b-fb44-4fd3-b2e1-84b27b64a504",
+      "name": "Name",
+      "kind": "Text",
+      "typeId": "core.text",
+      "width": 150
+    },
+    {
+      "id": "bdbe3c9f-cd83-4c43-ad5c-73f80f70fef5",
+      "name": "GoldMultiplier",
+      "kind": "Number",
+      "typeId": "core.number",
+      "width": 150
+    },
+    {
+      "id": "62a8c508-41ed-45ad-9043-6bb38c361f13",
+      "name": "BaseRollChance",
+      "kind": "Number",
+      "typeId": "core.number",
+      "width": 150
+    },
+    {
+      "id": "f6f91582-9eb2-44a7-93c5-5452fd1d2986",
+      "name": "UnlockRepLevel",
+      "kind": "Number",
+      "typeId": "core.number",
+      "width": 150
+    },
+    {
+      "id": "2333f6f8-aec5-4637-95e8-0945c04a823d",
+      "name": "Color",
+      "kind": "Text",
+      "typeId": "core.text",
+      "width": 150
+    }
+  ],
+  "variants": [
+    {
+      "id": 1,
+      "name": "Heroic"
+    },
+    {
+      "id": 2,
+      "name": "Variant 2"
+    }
+  ]
+}

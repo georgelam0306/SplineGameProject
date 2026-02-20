@@ -1,0 +1,51 @@
+{
+  "id": "33e04073-470a-4cbc-b4af-aaf36f0d6f96",
+  "name": "Derived",
+  "columns": [
+    {
+      "id": "out_score",
+      "name": "Score",
+      "kind": "Number",
+      "typeId": "core.number",
+      "width": 150,
+      "projected": true
+    },
+    {
+      "id": "out_name",
+      "name": "Name",
+      "kind": "Text",
+      "typeId": "core.text",
+      "width": 150,
+      "projected": true
+    }
+  ],
+  "variants": [
+    {
+      "id": 1,
+      "name": "Heroic"
+    },
+    {
+      "id": 2,
+      "name": "Variant 2"
+    }
+  ],
+  "derived": {
+    "baseTableId": "f37c8588-0b6b-47db-8eba-6c3b22ff91a2",
+    "steps": [],
+    "projections": [
+      {
+        "sourceTableId": "f37c8588-0b6b-47db-8eba-6c3b22ff91a2",
+        "sourceColumnId": "b5291790-836c-433e-855d-fc76cdde699a",
+        "outputColumnId": "out_score"
+      },
+      {
+        "sourceTableId": "f37c8588-0b6b-47db-8eba-6c3b22ff91a2",
+        "sourceColumnId": "0f6fdfb1-037c-4c84-8307-c83c83db34a3",
+        "outputColumnId": "out_name"
+      }
+    ]
+  },
+  "keys": {
+    "primaryKeyColumnId": "out_score"
+  }
+}

@@ -1,0 +1,156 @@
+name: Determinism Tests
+
+on:
+  push:
+    branches: ['**']
+    paths-ignore:
+      - 'Engine/**'
+      - 'Services/**'
+      - '.github/workflows/deploy-servers.yml'
+      - '.github/workflows/release-engine.yml'
+      - 'Docs/**'
+      - '*.md'
+  pull_request:
+    branches: [main]
+    paths-ignore:
+      - 'Engine/**'
+      - 'Services/**'
+      - '.github/workflows/deploy-servers.yml'
+      - '.github/workflows/release-engine.yml'
+      - 'Docs/**'
+      - '*.md'
+
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      games_list: ${{ steps.detect.outputs.games_list }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect changed games
+        id: detect
+        run: |
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            CHANGED=$(git diff --name-only origin/${{ github.base_ref }}...HEAD)
+          else
+            CHANGED=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || git ls-files)
+          fi
+
+          SHARED_CHANGED=false
+          # Trigger on shared game code that affects determinism
+          if echo "$CHANGED" | grep -qE '^(Shared/(Core|DesyncDetection|FixedMath|FlowField|Grid|Networking|Pooled|Rollback|RVO|SimTable)|scripts/(build|run|test|determinism|publish)|\.github/workflows/determinism\.yml)'; then
+            SHARED_CHANGED=true
+          fi
+
+          ALL_GAMES=$(ls -1 Games/ 2>/dev/null | tr '\n' ' ')
+          GAMES=()
+
+          for GAME in $ALL_GAMES; do
+            if [ "$SHARED_CHANGED" == "true" ]; then
+              GAMES+=("$GAME")
+            elif echo "$CHANGED" | grep -q "^Games/$GAME/"; then
+              GAMES+=("$GAME")
+            fi
+          done
+
+          if [ ${#GAMES[@]} -eq 0 ]; then
+            echo "games_list=[]" >> $GITHUB_OUTPUT
+          else
+            JSON=$(printf '%s\n' "${GAMES[@]}" | jq -R . | jq -s -c .)
+            echo "games_list=$JSON" >> $GITHUB_OUTPUT
+          fi
+
+  determinism:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.games_list != '[]'
+    name: ${{ matrix.game }} - ${{ matrix.test.name }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        game: ${{ fromJson(needs.detect-changes.outputs.games_list) }}
+        test:
+          - name: rollback-stress
+            file: test_rollback_stress.bin
+            mode: rollback
+          - name: flowfield-path
+            file: test_flowfield_path.bin
+            iterations: 5
+            mode: iteration
+          - name: combat-units
+            file: test_combat_units.bin
+            iterations: 5
+            mode: iteration
+          - name: general-gameplay
+            file: test_general_gameplay.bin
+            iterations: 3
+            mode: both
+          - name: calvin-test
+            file: test_long_multiplayer.bin
+            mode: rollback
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 9.0
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
+          restore-keys: ${{ runner.os }}-nuget-
+
+      - name: Check if replay file exists
+        id: check-replay
+        run: |
+          REPLAY_PATH="Games/${{ matrix.game }}/TestData/Replays/Determinism/${{ matrix.test.file }}"
+          if [ -f "$REPLAY_PATH" ]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "path=$REPLAY_PATH" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build Headless
+        if: steps.check-replay.outputs.exists == 'true'
+        shell: bash
+        run: ./scripts/build-game.sh ${{ matrix.game }} -c Release
+
+      - name: Run iteration test
+        if: steps.check-replay.outputs.exists == 'true' && (matrix.test.mode == 'iteration' || matrix.test.mode == 'both')
+        id: iteration-test
+        shell: bash
+        run: ./scripts/determinism-test.sh ${{ matrix.game }} "${{ steps.check-replay.outputs.path }}" ${{ matrix.test.iterations || 3 }}
+        continue-on-error: true
+
+      - name: Run rollback test
+        if: steps.check-replay.outputs.exists == 'true' && (matrix.test.mode == 'rollback' || matrix.test.mode == 'both')
+        id: rollback-test
+        shell: bash
+        run: ./scripts/determinism-test.sh ${{ matrix.game }} "${{ steps.check-replay.outputs.path }}" --rollback
+        continue-on-error: true
+
+      - name: Upload desync artifacts
+        if: steps.check-replay.outputs.exists == 'true' && (steps.iteration-test.outcome == 'failure' || steps.rollback-test.outcome == 'failure')
+        uses: actions/upload-artifact@v4
+        with:
+          name: desync-${{ matrix.game }}-${{ matrix.test.name }}-${{ github.sha }}
+          path: |
+            **/simworld_*.json
+            **/desync_*.json
+          retention-days: 14
+          if-no-files-found: ignore
+
+      - name: Check results
+        if: steps.check-replay.outputs.exists == 'true'
+        run: |
+          if [ "${{ steps.iteration-test.outcome }}" == "failure" ] || [ "${{ steps.rollback-test.outcome }}" == "failure" ]; then
+            exit 1
+          fi

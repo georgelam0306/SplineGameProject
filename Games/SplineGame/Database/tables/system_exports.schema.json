@@ -1,0 +1,52 @@
+{
+  "id": "d12b99b1-d771-40c3-9675-4fc67edcd0fd",
+  "name": "exports",
+  "columns": [
+    {
+      "id": "package_id",
+      "name": "PackageId",
+      "kind": "Relation",
+      "typeId": "core.relation",
+      "width": 180,
+      "relationTableId": "a7adeced-d1e7-40a7-a9e7-00ed249b89da",
+      "relationDisplayColumnId": "name"
+    },
+    {
+      "id": "asset_id",
+      "name": "AssetId",
+      "kind": "Relation",
+      "typeId": "core.relation",
+      "width": 220,
+      "relationTableId": "d1aa3799-2e64-4528-a592-07b0f4df333d",
+      "relationDisplayColumnId": "name"
+    },
+    {
+      "id": "enabled",
+      "name": "Enabled",
+      "kind": "Checkbox",
+      "typeId": "core.checkbox",
+      "width": 90
+    },
+    {
+      "id": "address",
+      "name": "Address",
+      "kind": "Text",
+      "typeId": "core.text",
+      "width": 260
+    },
+    {
+      "id": "load_from_override",
+      "name": "LoadFromOverride",
+      "kind": "Select",
+      "typeId": "core.select",
+      "width": 160,
+      "options": [
+        "Default",
+        "Disk",
+        "CDN"
+      ]
+    }
+  ],
+  "systemKey": "system.exports",
+  "systemSchemaLocked": true
+}

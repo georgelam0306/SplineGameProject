@@ -1,0 +1,28 @@
+{
+  "id": "8ebaa3fa-847f-418a-8d27-f458e2ff7286",
+  "name": "CharacterTest",
+  "columns": [
+    {
+      "id": "8b128552-164b-4f3f-b635-90879521d9d9",
+      "name": "Name",
+      "kind": "Text",
+      "typeId": "core.text",
+      "width": 150
+    },
+    {
+      "id": "ae408b77-c997-4431-999d-e689041c8829",
+      "name": "Variants",
+      "kind": "Subtable",
+      "typeId": "core.subtable",
+      "width": 1365.3047,
+      "subtableId": "5ee1b020-fa4f-4f84-a422-d8a1c0f4ee1e",
+      "subtableDisplayRendererId": "builtin.grid"
+    }
+  ],
+  "variants": [
+    {
+      "id": 1,
+      "name": "Playstation"
+    }
+  ]
+}

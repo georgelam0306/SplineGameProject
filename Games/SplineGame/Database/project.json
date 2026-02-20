@@ -1,0 +1,141 @@
+{
+  "name": "SplineGame",
+  "folders": [
+    {
+      "id": "29aabe10-4afa-4cff-9e3b-df6cf854dcad",
+      "name": "Gameplay",
+      "scope": "Tables"
+    }
+  ],
+  "tables": [
+    {
+      "id": "d1aa3799-2e64-4528-a592-07b0f4df333d",
+      "name": "assets",
+      "fileName": "system_assets"
+    },
+    {
+      "id": "a7adeced-d1e7-40a7-a9e7-00ed249b89da",
+      "name": "packages",
+      "fileName": "system_packages"
+    },
+    {
+      "id": "d12b99b1-d771-40c3-9675-4fc67edcd0fd",
+      "name": "exports",
+      "fileName": "system_exports"
+    },
+    {
+      "id": "85602648-f747-4971-b395-df14b42f7bf0",
+      "name": "textures",
+      "fileName": "system_textures"
+    },
+    {
+      "id": "c18d55bb-e7ec-4beb-98ed-7ebb8f2e4ab4",
+      "name": "models",
+      "fileName": "system_models"
+    },
+    {
+      "id": "56100085-13ef-4ba3-b835-d8d057b8e213",
+      "name": "audio",
+      "fileName": "system_audio"
+    },
+    {
+      "id": "03ed3340-d936-4517-bac4-8d0ce29a7615",
+      "name": "materials",
+      "fileName": "system_materials"
+    },
+    {
+      "id": "6bc8c8fe-6131-48a4-bfcb-8ed69d0dbf8d",
+      "name": "asset_deps",
+      "fileName": "system_asset_deps"
+    },
+    {
+      "id": "916628d7-a781-4548-9494-6492ba347453",
+      "name": "Player",
+      "fileName": "table11",
+      "folderId": "29aabe10-4afa-4cff-9e3b-df6cf854dcad"
+    },
+    {
+      "id": "4738a249-d98f-41ec-9c18-0ccb6cff971a",
+      "name": "ui",
+      "fileName": "system_ui"
+    },
+    {
+      "id": "2ca27ca3-d399-4265-af1f-1c4e903bfff7",
+      "name": "Enemies",
+      "fileName": "table13",
+      "folderId": "29aabe10-4afa-4cff-9e3b-df6cf854dcad"
+    },
+    {
+      "id": "a9df14bf-4d7b-4656-89b5-cdaf2d336ee0",
+      "name": "splinegame_entity_base",
+      "fileName": "system_splinegame_entity_base"
+    },
+    {
+      "id": "d31d15c4-cd75-4761-8b05-0004ee1ad8ba",
+      "name": "splinegame_entity_tools",
+      "fileName": "system_splinegame_entity_tools"
+    },
+    {
+      "id": "87139cb0-1731-4390-80f2-642b27170f5b",
+      "name": "Levels_SplineGameLevel 2_Points",
+      "fileName": "subtable17"
+    },
+    {
+      "id": "52332a62-84d6-4a0c-866b-b6198cc389e4",
+      "name": "Levels_SplineGameLevel_Points",
+      "fileName": "subtable18"
+    },
+    {
+      "id": "cd44f521-b5de-4197-93d2-c76210cf4445",
+      "name": "GameLevels_SplineGameLevel",
+      "fileName": "subtable19"
+    },
+    {
+      "id": "84ce3216-feb4-403c-81c8-7636eefcff99",
+      "name": "GameLevels",
+      "fileName": "table18"
+    },
+    {
+      "id": "775d1ee1-3ed1-4ed5-a9e9-0bbed5c0005a",
+      "name": "GameLevels_SplineGameLevel_Points",
+      "fileName": "subtable20"
+    },
+    {
+      "id": "19904288-ddb7-441a-9eae-7950a3e7ea01",
+      "name": "GameLevels_SplineGameLevel_Entities",
+      "fileName": "subtable21"
+    },
+    {
+      "id": "2f501eab-132e-4e3b-acf0-9dc205fb284a",
+      "name": "Triggers",
+      "fileName": "table22",
+      "folderId": "29aabe10-4afa-4cff-9e3b-df6cf854dcad"
+    },
+    {
+      "id": "f90f7dfc-8539-4aca-b592-5107cb4e94d0",
+      "name": "TableForFun",
+      "fileName": "table21",
+      "folderId": "29aabe10-4afa-4cff-9e3b-df6cf854dcad"
+    }
+  ],
+  "documents": [
+    {
+      "id": "8de6b006-5a48-4998-a298-5a75c91d5106",
+      "title": "hellow csgbc",
+      "fileName": "document1"
+    },
+    {
+      "id": "cd4a9ce5-e0b1-4596-9338-b323791a236c",
+      "title": "SplineGame Level Editing Guide",
+      "fileName": "document2"
+    }
+  ],
+  "ui": {
+    "tableFolderExpandedById": {
+      "29aabe10-4afa-4cff-9e3b-df6cf854dcad": true
+    }
+  },
+  "pluginSettings": {
+    "sidebar.systemsFolderExpanded": "false"
+  }
+}

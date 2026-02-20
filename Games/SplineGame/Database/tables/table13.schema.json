@@ -1,0 +1,45 @@
+{
+  "id": "2ca27ca3-d399-4265-af1f-1c4e903bfff7",
+  "name": "Enemies",
+  "columns": [
+    {
+      "id": "id",
+      "name": "Id",
+      "kind": "Id",
+      "typeId": "core.id",
+      "width": 180,
+      "inherited": true
+    },
+    {
+      "id": "name",
+      "name": "Name",
+      "kind": "Text",
+      "typeId": "core.text",
+      "width": 220,
+      "inherited": true
+    },
+    {
+      "id": "ui_asset",
+      "name": "UiAsset",
+      "kind": "UiAsset",
+      "typeId": "core.ui_asset",
+      "width": 210,
+      "inherited": true
+    },
+    {
+      "id": "scale",
+      "name": "Scale",
+      "kind": "Number",
+      "typeId": "core.number",
+      "width": 90,
+      "inherited": true
+    }
+  ],
+  "export": {
+    "enabled": true
+  },
+  "keys": {
+    "primaryKeyColumnId": "id"
+  },
+  "inheritanceSourceTableId": "a9df14bf-4d7b-4656-89b5-cdaf2d336ee0"
+}

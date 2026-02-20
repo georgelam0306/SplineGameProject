@@ -1,0 +1,48 @@
+{
+  "id": "87139cb0-1731-4390-80f2-642b27170f5b",
+  "name": "Levels_SplineGameLevel 2_Points",
+  "columns": [
+    {
+      "id": "_parentRowId",
+      "name": "_parentRowId",
+      "kind": "Text",
+      "typeId": "core.text",
+      "width": 120,
+      "hidden": true
+    },
+    {
+      "id": "point_order",
+      "name": "Order",
+      "kind": "Number",
+      "typeId": "core.number",
+      "width": 90,
+      "exportType": "int"
+    },
+    {
+      "id": "point_position",
+      "name": "Position",
+      "kind": "Vec2",
+      "typeId": "core.vec2.fixed64",
+      "width": 180
+    },
+    {
+      "id": "point_tangent_in",
+      "name": "TangentIn",
+      "kind": "Vec2",
+      "typeId": "core.vec2.fixed64",
+      "width": 180
+    },
+    {
+      "id": "point_tangent_out",
+      "name": "TangentOut",
+      "kind": "Vec2",
+      "typeId": "core.vec2.fixed64",
+      "width": 180
+    }
+  ],
+  "parentTableId": "96a2858a-1156-4638-b1fb-8ad3aed5b325",
+  "parentRowColumnId": "_parentRowId",
+  "pluginTableTypeId": "splinegame.level.points.table",
+  "pluginOwnerColumnTypeId": "splinegame.level",
+  "pluginSchemaLocked": true
+}

@@ -1,0 +1,27 @@
+[
+  {
+    "Id": 0,
+    "Name": "Default",
+    "SafeZoneRadiusTiles": 20,
+    "BuildableZoneRadiusTiles": 30,
+    "CardinalPathWidth": 5,
+    "TerrainNoiseScale": 0.02,
+    "TerrainNoiseOctaves": 4,
+    "TerrainNoisePersistence": 0.5,
+    "WaterThreshold": 0.38,
+    "GrassThreshold": 0.52,
+    "ForestThreshold": 0.72,
+    "GoldDepositsPerZone": 5,
+    "EnergyDepositsPerZone": 0,
+    "WoodNodesPerZone": 0,
+    "StoneDepositsPerZone": 6,
+    "IronDepositsPerZone": 4,
+    "OilDepositsPerZone": 2,
+    "ResourceAmountMin": 1000,
+    "ResourceAmountMax": 5000,
+    "StarterStoneNodes": 4,
+    "StarterIronNodes": 2,
+    "TotalZombieCount": 15000,
+    "ZombiePlacementAttempts": 50000
+  }
+]

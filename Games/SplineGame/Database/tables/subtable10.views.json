@@ -1,0 +1,15 @@
+{
+  "views": [
+    {
+      "id": "80870168-87a1-419c-841f-399aaf985d2c",
+      "name": "Spline Level Editor",
+      "type": "Custom",
+      "customRendererId": "splinegame.level-editor"
+    },
+    {
+      "id": "847aa0ec-dda0-4323-9242-37500c0ed4c3",
+      "name": "Grid view",
+      "type": "Grid"
+    }
+  ]
+}

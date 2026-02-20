@@ -1,0 +1,39 @@
+{
+  "id": "a9df14bf-4d7b-4656-89b5-cdaf2d336ee0",
+  "name": "splinegame_entity_base",
+  "columns": [
+    {
+      "id": "id",
+      "name": "Id",
+      "kind": "Id",
+      "typeId": "core.id",
+      "width": 180
+    },
+    {
+      "id": "name",
+      "name": "Name",
+      "kind": "Text",
+      "typeId": "core.text",
+      "width": 220
+    },
+    {
+      "id": "ui_asset",
+      "name": "UiAsset",
+      "kind": "UiAsset",
+      "typeId": "core.ui_asset",
+      "width": 210
+    },
+    {
+      "id": "scale",
+      "name": "Scale",
+      "kind": "Number",
+      "typeId": "core.number",
+      "width": 90
+    }
+  ],
+  "keys": {
+    "primaryKeyColumnId": "id"
+  },
+  "systemKey": "system.splinegame.entity_base",
+  "systemSchemaLocked": true
+}

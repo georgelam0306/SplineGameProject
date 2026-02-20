@@ -1,0 +1,9 @@
+<Project>
+  <PropertyGroup>
+    <!-- Redirect all bin/obj to Outputs folder, organized by project name -->
+    <BaseOutputPath>$(MSBuildThisFileDirectory)Outputs\$(MSBuildProjectName)\bin\</BaseOutputPath>
+    <BaseIntermediateOutputPath>$(MSBuildThisFileDirectory)Outputs\$(MSBuildProjectName)\obj\</BaseIntermediateOutputPath>
+    <MSBuildProjectExtensionsPath>$(BaseIntermediateOutputPath)</MSBuildProjectExtensionsPath>
+    <MSBuildWarningsAsMessages>$(MSBuildWarningsAsMessages);MSB3539</MSBuildWarningsAsMessages>
+  </PropertyGroup>
+</Project>

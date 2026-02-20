@@ -1,0 +1,95 @@
+{
+  "id": "25c50846-f23d-40c3-be1e-1e5780c3cb45",
+  "name": "StoryTool",
+  "columns": [
+    {
+      "id": "b31d90b5-6fea-48ba-ad64-46da58d35297",
+      "name": "Type",
+      "kind": "Select",
+      "typeId": "core.select",
+      "width": 140,
+      "options": [
+        "Default",
+        "Test",
+        "Cooltype"
+      ]
+    },
+    {
+      "id": "b832f5e9-9ac4-4094-b27a-8e4b6360666f",
+      "name": "Pos",
+      "kind": "Vec2",
+      "typeId": "core.vec2.fixed64",
+      "width": 226.1836,
+      "hidden": true
+    },
+    {
+      "id": "421d2fbf-b751-4447-86b3-4304907b2217",
+      "name": "Title",
+      "kind": "Text",
+      "typeId": "core.text",
+      "width": 180
+    },
+    {
+      "id": "7a6d073f-d589-43c7-ba2d-597eba403694",
+      "name": "Edges",
+      "kind": "Subtable",
+      "typeId": "core.subtable",
+      "width": 120,
+      "subtableId": "71ef043a-49fb-40ee-b959-4f0a8a811e13"
+    },
+    {
+      "id": "f56d420b-c23f-4482-9832-5d22b1244c39",
+      "name": "Number",
+      "kind": "Number",
+      "typeId": "core.number",
+      "width": 150
+    },
+    {
+      "id": "0e68428f-8ce9-43f3-ac00-395b7a73ef54",
+      "name": "Checkbox",
+      "kind": "Checkbox",
+      "typeId": "core.checkbox",
+      "width": 150
+    },
+    {
+      "id": "87f732de-442e-4438-b864-1901850f19f5",
+      "name": "Column",
+      "kind": "Text",
+      "typeId": "core.text",
+      "width": 150
+    },
+    {
+      "id": "df3f4018-08e4-4b81-b5b3-4c4c2f2d7871",
+      "name": "Column 2",
+      "kind": "Text",
+      "typeId": "core.text",
+      "width": 150
+    },
+    {
+      "id": "26fc1637-2779-4954-bd39-e92266f8a2bb",
+      "name": "Number 2",
+      "kind": "Number",
+      "typeId": "core.number",
+      "width": 139.375
+    },
+    {
+      "id": "2f911326-973e-45e1-bf68-337d3fb4cfcc",
+      "name": "Items",
+      "kind": "Subtable",
+      "typeId": "core.subtable",
+      "width": 150,
+      "subtableId": "1f00948e-dcd7-4156-b256-dda7ff5e9bf0"
+    },
+    {
+      "id": "80c11fbe-9e01-40aa-beb7-01bb7bb25d8f",
+      "name": "ExecNext",
+      "kind": "Relation",
+      "typeId": "core.relation",
+      "width": 130,
+      "relationTableId": "25c50846-f23d-40c3-be1e-1e5780c3cb45",
+      "relationTargetMode": "SelfTable",
+      "relationDisplayColumnId": "421d2fbf-b751-4447-86b3-4304907b2217",
+      "hidden": true
+    }
+  ]
+}

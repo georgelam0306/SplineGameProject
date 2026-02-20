@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <Configurations>Debug;Release;Editor</Configurations>
+
+    <!-- Planning-level switch consumed by Derp.Ecs.Generator -->
+    <DerpEcsDomain>View</DerpEcsDomain>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <CompilerVisibleProperty Include="DerpEcsDomain" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Runtime\Derp.Ecs.Runtime.csproj" />
+    <ProjectReference Include="..\Generator\Derp.Ecs.Generator.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+</Project>

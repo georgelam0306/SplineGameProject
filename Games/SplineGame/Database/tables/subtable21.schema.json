@@ -1,0 +1,62 @@
+{
+  "id": "19904288-ddb7-441a-9eae-7950a3e7ea01",
+  "name": "GameLevels_SplineGameLevel_Entities",
+  "columns": [
+    {
+      "id": "_parentRowId",
+      "name": "_parentRowId",
+      "kind": "Text",
+      "typeId": "core.text",
+      "width": 120,
+      "hidden": true
+    },
+    {
+      "id": "entity_order",
+      "name": "Order",
+      "kind": "Number",
+      "typeId": "core.number",
+      "width": 90,
+      "exportType": "int"
+    },
+    {
+      "id": "entity_param_t",
+      "name": "ParamT",
+      "kind": "Number",
+      "typeId": "core.number",
+      "width": 90
+    },
+    {
+      "id": "entity_position",
+      "name": "Position",
+      "kind": "Vec2",
+      "typeId": "core.vec2.fixed64",
+      "width": 180
+    },
+    {
+      "id": "entity_table",
+      "name": "EntityTable",
+      "kind": "TableRef",
+      "typeId": "core.table_ref",
+      "width": 220
+    },
+    {
+      "id": "entity_row_id",
+      "name": "EntityRowId",
+      "kind": "Text",
+      "typeId": "core.text",
+      "width": 180
+    },
+    {
+      "id": "entity_data_json",
+      "name": "DataJson",
+      "kind": "Text",
+      "typeId": "core.text",
+      "width": 260
+    }
+  ],
+  "parentTableId": "cd44f521-b5de-4197-93d2-c76210cf4445",
+  "parentRowColumnId": "_parentRowId",
+  "pluginTableTypeId": "splinegame.level.entities.table",
+  "pluginOwnerColumnTypeId": "splinegame.level",
+  "pluginSchemaLocked": true
+}

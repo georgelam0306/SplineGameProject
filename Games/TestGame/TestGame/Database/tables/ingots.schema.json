@@ -1,0 +1,104 @@
+{
+  "id": "0d222a86-8c63-494d-890e-984807011162",
+  "name": "Ingots",
+  "columns": [
+    {
+      "id": "c1edfcfc-6c54-410c-afad-eeb8bbd99041",
+      "name": "Name",
+      "kind": "Text",
+      "typeId": "core.text",
+      "width": 150
+    },
+    {
+      "id": "08fea8f7-f1d2-44a0-b53f-af3338dbac89",
+      "name": "Type",
+      "kind": "Select",
+      "typeId": "core.select",
+      "width": 150,
+      "options": [
+        "Base",
+        "Alloy"
+      ]
+    },
+    {
+      "id": "b5bf6540-ab29-4590-9677-146df36c794d",
+      "name": "OreInput1",
+      "kind": "Text",
+      "typeId": "core.text",
+      "width": 150
+    },
+    {
+      "id": "38d1607f-f3bc-4681-ad9c-42682fd8f4d9",
+      "name": "OreInput1Qty",
+      "kind": "Number",
+      "typeId": "core.number",
+      "width": 150
+    },
+    {
+      "id": "87642c2f-403b-4ea5-8bf7-edf5844dd65e",
+      "name": "OreInput2",
+      "kind": "Text",
+      "typeId": "core.text",
+      "width": 150
+    },
+    {
+      "id": "ac172894-7a9e-410c-817c-8134a4aa4ca5",
+      "name": "OreInput2Qty",
+      "kind": "Number",
+      "typeId": "core.number",
+      "width": 150
+    },
+    {
+      "id": "a5ec63e0-6091-458c-83be-a578d3a8127c",
+      "name": "SmeltTimeSec",
+      "kind": "Number",
+      "typeId": "core.number",
+      "width": 150
+    },
+    {
+      "id": "d4159aa2-0c28-4808-9fe3-89c550eed03b",
+      "name": "FurnaceLevelReq",
+      "kind": "Number",
+      "typeId": "core.number",
+      "width": 150
+    },
+    {
+      "id": "4b7930ff-5da1-48fa-a682-f7fe6c2a9556",
+      "name": "BaseValue",
+      "kind": "Number",
+      "typeId": "core.number",
+      "width": 150
+    },
+    {
+      "id": "dd5a9e68-2ee9-4290-a2a7-8930d7ba2e4c",
+      "name": "OreInput1Ref",
+      "kind": "Relation",
+      "typeId": "core.relation",
+      "width": 150,
+      "relationTableId": "e5a0e561-fbb4-4638-844d-6ea1762ad166",
+      "relationDisplayColumnId": "9fcd1114-9732-4d48-93cf-588aa4b067ce"
+    },
+    {
+      "id": "1aa887e4-e8e0-4cac-abd3-210caa814c15",
+      "name": "OreInput2Ref",
+      "kind": "Relation",
+      "typeId": "core.relation",
+      "width": 150,
+      "relationTableId": "e5a0e561-fbb4-4638-844d-6ea1762ad166",
+      "relationDisplayColumnId": "9fcd1114-9732-4d48-93cf-588aa4b067ce"
+    }
+  ],
+  "variants": [
+    {
+      "id": 1,
+      "name": "Heroic"
+    },
+    {
+      "id": 2,
+      "name": "Variant 2"
+    }
+  ],
+  "keys": {
+    "primaryKeyColumnId": "c1edfcfc-6c54-410c-afad-eeb8bbd99041"
+  }
+}

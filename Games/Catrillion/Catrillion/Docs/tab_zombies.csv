@@ -1,0 +1,12 @@
+Name,Category,HP,Armor,Damage,AttackSpeed,Range,MoveSpeed,WatchRange,AttackNoise,Experience,SpecialAbility
+Infected Aged,Walker,35,0,6,1,0.5,0.4,5,1,1,
+Infected Decrepit,Walker,35,0,6,1,0.5,0.4,5,1,1,
+Infected Young,Walker,35,0,6,1,0.5,0.4,5,1,1,
+Infected Fresh,Runner,45,5,10,1,0.6,1.75,6,2,2,
+Infected Colonist,Runner,45,5,9,1.11,0.6,1.75,6,2,2,
+Infected Executive,Runner,80,10,12,1.25,0.6,1.75,6,3,5,
+Infected Harpy,Special,120,10,30,3.33,0.8,5,9,10,10,Can jump over walls. Very sensitive to noise.
+Infected Venom,Special,120,10,30,0.5,4.5,1.75,8,10,10,Ranged AoE attacks
+Infected Chubby,Special,500,15,40,1,0.7,1.75,5,10,10,High HP tank
+Infected Giant,Special,4000-20000,30,160,1.25,3,4,10,0,0,Very large AoE attacks. Deaf (attracted only by sight/damage).
+Infected Behemoth,Special,1500-8000,10,30,2,2,6,12,200,50,Large AoE attacks. Extremely sensitive hearing.

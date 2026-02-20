@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <Configurations>Debug;Release;Editor</Configurations>
+
+    <DerpEcsDomain>View</DerpEcsDomain>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <CompilerVisibleProperty Include="DerpEcsDomain" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <DerpEcsUgcSchema Include="UgcSchema.derpecs.json" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\DerpLib.Ecs\Runtime\Derp.Ecs.Runtime.csproj" />
+    <ProjectReference Include="..\..\DerpLib.Ecs\Generator\Derp.Ecs.Generator.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\..\DerpLib.Ecs.Editor\Runtime\Derp.Ecs.Editor.Runtime.csproj" />
+    <ProjectReference Include="..\..\DerpLib.Ecs.Editor\Generator\Derp.Ecs.Editor.Generator.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\..\Property\Annotations\Property.Annotations.csproj" />
+    <ProjectReference Include="..\..\Property\Runtime\Property.Runtime.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,34 @@
+{
+  "id": "d8269630-2c91-40d1-b759-6a81427253e4",
+  "name": "ReputationMilestones",
+  "columns": [
+    {
+      "id": "899d2c07-df8d-468e-8c7f-5adc07f7a2cf",
+      "name": "RepLevel",
+      "kind": "Number",
+      "typeId": "core.number",
+      "width": 150
+    },
+    {
+      "id": "e10e3918-44bd-46a4-a3ee-5ccc8775a06d",
+      "name": "Unlocks",
+      "kind": "Subtable",
+      "typeId": "core.subtable",
+      "width": 150,
+      "subtableId": "9d6fc7b2-8593-4405-bf3d-c09c9eba2e11"
+    }
+  ],
+  "variants": [
+    {
+      "id": 1,
+      "name": "Heroic"
+    },
+    {
+      "id": 2,
+      "name": "Variant 2"
+    }
+  ],
+  "keys": {
+    "primaryKeyColumnId": "899d2c07-df8d-468e-8c7f-5adc07f7a2cf"
+  }
+}

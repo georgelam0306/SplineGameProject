@@ -1,0 +1,230 @@
+name: Deploy Servers
+
+on:
+  push:
+    branches: [master]
+    paths:
+      # Matchmaking server
+      - 'Services/MatchmakingServer/**'
+      - 'Services/MatchmakingContracts/**'
+      # Bug report server
+      - 'Services/BugReportServer/**'
+      - 'Services/BugReportContracts/**'
+      # Shared networking (HTTP matchmaking models, etc.)
+      - 'Shared/Networking/**'
+  workflow_dispatch:
+    inputs:
+      deploy_matchmaking:
+        description: 'Deploy Matchmaking Server'
+        type: boolean
+        default: true
+      deploy_bugreport:
+        description: 'Deploy Bug Report Server'
+        type: boolean
+        default: true
+
+env:
+  SERVER_IP: 45.76.79.231
+  DOTNET_VERSION: '9.0.x'
+
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      matchmaking: ${{ steps.changes.outputs.matchmaking }}
+      bugreport: ${{ steps.changes.outputs.bugreport }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Detect changed paths
+        id: changes
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "matchmaking=${{ github.event.inputs.deploy_matchmaking }}" >> $GITHUB_OUTPUT
+            echo "bugreport=${{ github.event.inputs.deploy_bugreport }}" >> $GITHUB_OUTPUT
+          else
+            CHANGED=$(git diff --name-only HEAD~1 HEAD)
+
+            if echo "$CHANGED" | grep -qE '^(Services/MatchmakingServer|Services/MatchmakingContracts|Shared/Networking)/'; then
+              echo "matchmaking=true" >> $GITHUB_OUTPUT
+            else
+              echo "matchmaking=false" >> $GITHUB_OUTPUT
+            fi
+
+            if echo "$CHANGED" | grep -qE '^(Services/BugReportServer|Services/BugReportContracts)/'; then
+              echo "bugreport=true" >> $GITHUB_OUTPUT
+            else
+              echo "bugreport=false" >> $GITHUB_OUTPUT
+            fi
+          fi
+
+  deploy-matchmaking:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.matchmaking == 'true'
+    runs-on: ubuntu-latest
+    name: Deploy Matchmaking Server
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
+          restore-keys: ${{ runner.os }}-nuget-
+
+      - name: Build Matchmaking Server
+        run: |
+          dotnet publish Services/MatchmakingServer/MatchmakingServer.csproj \
+            -c Release \
+            -r linux-x64 \
+            --self-contained \
+            -o ./publish-matchmaking
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ env.SERVER_IP }} >> ~/.ssh/known_hosts
+
+      - name: Deploy to Server
+        run: |
+          SSH_CMD="ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no root@${{ env.SERVER_IP }}"
+          SCP_CMD="scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no"
+
+          echo "Stopping matchmaking service..."
+          $SSH_CMD 'systemctl stop matchmaking || true'
+
+          echo "Creating directory..."
+          $SSH_CMD 'mkdir -p /opt/matchmaking'
+
+          echo "Uploading new build..."
+          $SCP_CMD -r ./publish-matchmaking/* root@${{ env.SERVER_IP }}:/opt/matchmaking/
+
+          echo "Setting permissions..."
+          $SSH_CMD 'chmod +x /opt/matchmaking/MatchmakingServer'
+
+          echo "Creating systemd service if needed..."
+          $SSH_CMD 'cat > /etc/systemd/system/matchmaking.service << EOF
+          [Unit]
+          Description=Matchmaking Server
+          After=network.target
+
+          [Service]
+          Type=simple
+          WorkingDirectory=/opt/matchmaking
+          Environment=SERVER_IP=${{ env.SERVER_IP }}
+          ExecStart=/opt/matchmaking/MatchmakingServer
+          Restart=always
+          RestartSec=5
+
+          [Install]
+          WantedBy=multi-user.target
+          EOF'
+          $SSH_CMD 'systemctl daemon-reload && systemctl enable matchmaking'
+
+          echo "Starting service..."
+          $SSH_CMD 'systemctl start matchmaking'
+
+          echo "Verifying deployment..."
+          sleep 3
+          $SSH_CMD 'systemctl is-active matchmaking'
+
+      - name: Health Check
+        run: |
+          sleep 5
+          curl -f http://${{ env.SERVER_IP }}:5050/health || exit 1
+          echo "Matchmaking server deployed successfully!"
+
+  deploy-bugreport:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.bugreport == 'true'
+    runs-on: ubuntu-latest
+    name: Deploy Bug Report Server
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
+          restore-keys: ${{ runner.os }}-nuget-
+
+      - name: Build Bug Report Server
+        run: |
+          dotnet publish Services/BugReportServer/BugReportServer.csproj \
+            -c Release \
+            -r linux-x64 \
+            --self-contained \
+            -o ./publish-bugreport
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ env.SERVER_IP }} >> ~/.ssh/known_hosts
+
+      - name: Deploy to Server
+        run: |
+          SSH_CMD="ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no root@${{ env.SERVER_IP }}"
+          SCP_CMD="scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no"
+
+          echo "Stopping bugreport service..."
+          $SSH_CMD 'systemctl stop bugreport || true'
+
+          echo "Creating directory..."
+          $SSH_CMD 'mkdir -p /opt/bugreport'
+
+          echo "Uploading new build..."
+          $SCP_CMD -r ./publish-bugreport/* root@${{ env.SERVER_IP }}:/opt/bugreport/
+
+          echo "Setting permissions..."
+          $SSH_CMD 'chmod +x /opt/bugreport/BugReportServer'
+
+          echo "Creating systemd service if needed..."
+          $SSH_CMD 'cat > /etc/systemd/system/bugreport.service << EOF
+          [Unit]
+          Description=Bug Report Server
+          After=network.target
+
+          [Service]
+          Type=simple
+          WorkingDirectory=/opt/bugreport
+          Environment=SERVER_IP=${{ env.SERVER_IP }}
+          Environment=BUGREPORT_STORAGE_PATH=/opt/bugreport/data
+          ExecStart=/opt/bugreport/BugReportServer
+          Restart=always
+          RestartSec=5
+
+          [Install]
+          WantedBy=multi-user.target
+          EOF'
+          $SSH_CMD 'systemctl daemon-reload && systemctl enable bugreport'
+
+          echo "Starting service..."
+          $SSH_CMD 'systemctl start bugreport'
+
+          echo "Verifying deployment..."
+          sleep 3
+          $SSH_CMD 'systemctl is-active bugreport'
+
+      - name: Health Check
+        run: |
+          sleep 5
+          curl -f http://${{ env.SERVER_IP }}:5052/health || exit 1
+          echo "Bug report server deployed successfully!"

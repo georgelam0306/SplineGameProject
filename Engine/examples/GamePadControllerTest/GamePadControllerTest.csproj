@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <AssemblyName>DerpTech.GamePadControllerTest</AssemblyName>
+    <RootNamespace>DerpLib.Examples.GamePadControllerTest</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Engine\Engine.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="Fonts\**\*.*" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <FontSources Include="Fonts/**/*.ttf;Fonts/**/*.otf" />
+    <FontOutputs Include="@(FontSources->'$(TargetDir)data/db/fonts/%(Filename).font')" />
+  </ItemGroup>
+
+  <Target Name="BuildFontDatabase"
+          BeforeTargets="Build"
+          Inputs="@(FontSources)"
+          Outputs="@(FontOutputs)"
+          Condition="'@(FontSources)' != ''">
+    <PropertyGroup>
+      <_FontsSourceDir>$(MSBuildProjectDirectory)/Fonts</_FontsSourceDir>
+      <_AssetsOutputDir>$(TargetDir)data</_AssetsOutputDir>
+      <_EngineBuildProject>$(MSBuildProjectDirectory)/../../src/Engine.Build/Engine.Build.csproj</_EngineBuildProject>
+    </PropertyGroup>
+
+    <Message Importance="High" Text="Building font database into $(_AssetsOutputDir)..." />
+    <Exec Command="dotnet run --project &quot;$(_EngineBuildProject)&quot; -- &quot;$(_FontsSourceDir)&quot; &quot;$(_AssetsOutputDir)&quot;" />
+  </Target>
+
+</Project>

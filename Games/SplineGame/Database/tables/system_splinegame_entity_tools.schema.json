@@ -1,0 +1,33 @@
+{
+  "id": "d31d15c4-cd75-4761-8b05-0004ee1ad8ba",
+  "name": "splinegame_entity_tools",
+  "columns": [
+    {
+      "id": "id",
+      "name": "Id",
+      "kind": "Id",
+      "typeId": "core.id",
+      "width": 180
+    },
+    {
+      "id": "name",
+      "name": "Name",
+      "kind": "Text",
+      "typeId": "core.text",
+      "width": 220
+    },
+    {
+      "id": "entities_table",
+      "name": "EntitiesTable",
+      "kind": "TableRef",
+      "typeId": "core.table_ref",
+      "width": 220,
+      "tableRefBaseTableId": "a9df14bf-4d7b-4656-89b5-cdaf2d336ee0"
+    }
+  ],
+  "keys": {
+    "primaryKeyColumnId": "id"
+  },
+  "systemKey": "system.splinegame.entity_tools",
+  "systemSchemaLocked": true
+}

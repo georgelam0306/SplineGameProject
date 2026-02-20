@@ -1,0 +1,45 @@
+{
+  "id": "1f00948e-dcd7-4156-b256-dda7ff5e9bf0",
+  "name": "Table 36_Items",
+  "columns": [
+    {
+      "id": "87cd4072-d1be-4f4d-9270-3ce4ff0bfd91",
+      "name": "_parentRowId",
+      "kind": "Text",
+      "typeId": "core.text",
+      "width": 100,
+      "hidden": true
+    },
+    {
+      "id": "34d4f4b4-e0de-42fd-a8cd-71765d460243",
+      "name": "Item",
+      "kind": "Text",
+      "typeId": "core.text",
+      "width": 372.8672
+    },
+    {
+      "id": "33556684-25d0-407b-93bf-42a90cb3efd4",
+      "name": "Select",
+      "kind": "Select",
+      "typeId": "core.select",
+      "width": 150,
+      "options": [
+        "Option 1",
+        "Option 2",
+        "Option 3",
+        "test"
+      ]
+    },
+    {
+      "id": "7fa70065-78cc-4cb3-b94c-adf3973aaef3",
+      "name": "Relation",
+      "kind": "Relation",
+      "typeId": "core.relation",
+      "width": 150,
+      "relationTableId": "25c50846-f23d-40c3-be1e-1e5780c3cb45",
+      "relationTargetMode": "ParentTable"
+    }
+  ],
+  "parentTableId": "25c50846-f23d-40c3-be1e-1e5780c3cb45",
+  "parentRowColumnId": "87cd4072-d1be-4f4d-9270-3ce4ff0bfd91"
+}

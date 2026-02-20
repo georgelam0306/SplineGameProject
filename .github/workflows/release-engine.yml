@@ -1,0 +1,181 @@
+name: Release Engine
+
+on:
+  push:
+    tags:
+      - 'engine-v*'  # Format: engine-v1.0.0
+
+jobs:
+  parse-version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.parse.outputs.version }}
+    steps:
+      - name: Parse tag
+        id: parse
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          VERSION="${TAG#engine-v}"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Building DerpLib.Examples version $VERSION"
+
+  build:
+    needs: parse-version
+    name: Build DerpLib.Examples (${{ matrix.rid }}${{ matrix.aot && '-aot' || '' }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # .NET self-contained builds
+          - os: ubuntu-latest
+            rid: linux-x64
+            aot: false
+          - os: macos-latest
+            rid: osx-arm64
+            aot: false
+          - os: windows-latest
+            rid: win-x64
+            aot: false
+          # NativeAOT builds
+          - os: ubuntu-latest
+            rid: linux-x64
+            aot: true
+          - os: macos-latest
+            rid: osx-arm64
+            aot: true
+          - os: windows-latest
+            rid: win-x64
+            aot: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 9.0
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
+          restore-keys: ${{ runner.os }}-nuget-
+
+      # Install glslc for shader compilation
+      - name: Install glslc (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y glslc
+
+      - name: Install glslc (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install shaderc
+          echo "$(brew --prefix shaderc)/bin" >> $GITHUB_PATH
+
+      - name: Install glslc (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          # Download Vulkan SDK installer
+          $sdkVersion = "1.3.296.0"
+          $url = "https://sdk.lunarg.com/sdk/download/$sdkVersion/windows/VulkanSDK-$sdkVersion-Installer.exe"
+          $installer = "$env:TEMP\VulkanSDK-Installer.exe"
+
+          # Use curl for faster download
+          curl -L -o $installer $url
+
+          # Silent install to default location
+          Start-Process -FilePath $installer -ArgumentList "--accept-licenses --default-answer --confirm-command install" -Wait -NoNewWindow
+
+          # Add to PATH
+          $vulkanPath = "C:\VulkanSDK\$sdkVersion\Bin"
+          echo "$vulkanPath" >> $env:GITHUB_PATH
+
+      # NativeAOT requires platform-specific build tools
+      - name: Install NativeAOT prerequisites (Linux)
+        if: matrix.aot && runner.os == 'Linux'
+        run: sudo apt-get install -y clang zlib1g-dev
+
+      - name: Build release (.NET)
+        if: ${{ !matrix.aot }}
+        shell: bash
+        run: ./scripts/publish-engine.sh ${{ matrix.rid }}
+
+      - name: Build release (NativeAOT)
+        if: ${{ matrix.aot }}
+        shell: bash
+        run: ./scripts/publish-engine-aot.sh ${{ matrix.rid }}
+
+      - name: Upload artifact (.NET)
+        if: ${{ !matrix.aot }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: DerpLib.Examples-${{ matrix.rid }}
+          path: |
+            Engine/DerpLib.Examples/publish/${{ matrix.rid }}/dist/*.zip
+            Engine/DerpLib.Examples/publish/${{ matrix.rid }}/dist/*.tar.gz
+          retention-days: 1
+
+      - name: Upload artifact (NativeAOT)
+        if: ${{ matrix.aot }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: DerpLib.Examples-${{ matrix.rid }}-aot
+          path: |
+            Engine/DerpLib.Examples/publish-aot/${{ matrix.rid }}/dist/*.zip
+            Engine/DerpLib.Examples/publish-aot/${{ matrix.rid }}/dist/*.tar.gz
+          retention-days: 1
+
+  release:
+    needs: [parse-version, build]
+    name: Create Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: List artifacts
+        run: find artifacts -type f
+
+      # Delay to avoid hitting rate limits after parallel builds
+      - name: Wait before release
+        run: sleep 30
+
+      - name: Create GitHub Release
+        id: release
+        uses: softprops/action-gh-release@v2
+        continue-on-error: true
+        with:
+          name: DerpLib.Examples v${{ needs.parse-version.outputs.version }}
+          files: artifacts/**/*
+          generate_release_notes: true
+          fail_on_unmatched_files: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Retry release if rate-limited
+      - name: Wait before retry
+        if: steps.release.outcome == 'failure'
+        run: |
+          echo "First attempt failed, waiting 60 seconds before retry..."
+          sleep 60
+
+      - name: Retry GitHub Release
+        if: steps.release.outcome == 'failure'
+        uses: softprops/action-gh-release@v2
+        with:
+          name: DerpLib.Examples v${{ needs.parse-version.outputs.version }}
+          files: artifacts/**/*
+          generate_release_notes: true
+          fail_on_unmatched_files: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

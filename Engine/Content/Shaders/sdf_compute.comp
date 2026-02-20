@@ -1,0 +1,3772 @@
+#version 450
+#extension GL_EXT_nonuniform_qualifier : enable
+
+// Workgroup size matches TileSize in SdfRenderer.cs
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+// Output storage image
+layout(set = 0, binding = 0, rgba8) uniform writeonly image2D outputImage;
+
+// SDF command buffer (std430 layout, matches SdfCommand struct)
+layout(std430, set = 0, binding = 1) readonly buffer Commands {
+    // Each command is 64 bytes (see SdfCommand [GpuStruct])
+    // Layout: Type(4) Flags(4) Position(8) Size(8) Color(16) Params(16) = 56 bytes, padded to 64
+    uint data[];
+} commands;
+
+// Lattice buffer for FFD (4x4 grid = 16 vec2 offsets = 128 bytes per lattice)
+layout(std430, set = 0, binding = 2) readonly buffer Lattices {
+    vec2 points[];  // Flattened: lattice[i] has points at i*16 to i*16+15
+} lattices;
+
+// Polyline headers (bounds + start index + count)
+// Layout per header: BoundsMin(vec2), BoundsMax(vec2), StartIndex(uint), PointCount(uint) = 24 bytes
+layout(std430, set = 0, binding = 3) readonly buffer PolylineHeaders {
+    // Each header is 6 floats: minX, minY, maxX, maxY, startIndex (as float bits), pointCount (as float bits)
+    float data[];
+} headers;
+
+// Polyline points (flat vec2 array, shared by all polylines)
+layout(std430, set = 0, binding = 4) readonly buffer PolylinePoints {
+    vec2 points[];
+} polylinePoints;
+
+// Polyline prefix lengths (flat float array, shared by all polylines)
+// lengths[startIndex] == 0 and lengths increase monotonically per polyline.
+layout(std430, set = 0, binding = 10) readonly buffer PolylineLengths {
+    float lengths[];
+} polylineLengths;
+
+// Tile data (CPU-built for GPU consumption)
+layout(std430, set = 0, binding = 5) readonly buffer TileOffsets {
+    uint offsets[];
+} tileOffsets;
+
+layout(std430, set = 0, binding = 6) readonly buffer TileIndices {
+    uint indices[];
+} tileIndices;
+
+// Optional font atlases for glyph rendering (sampled in compute)
+layout(set = 0, binding = 7) uniform sampler2D fontAtlasPrimary;
+layout(set = 0, binding = 12) uniform sampler2D fontAtlasSecondary;
+layout(set = 0, binding = 13) uniform sampler2D fontAtlases[256];
+
+// Gradient stops (multi-stop gradients)
+struct GradientStop {
+    vec4 color;
+    vec4 params; // x=t (0-1), y/z/w reserved
+};
+
+layout(std430, set = 0, binding = 8) readonly buffer GradientStops {
+    GradientStop stops[];
+} gradientStops;
+
+// Warp stack nodes (per-command linked list)
+// Node indices are 1-based, 0 means "no warp".
+struct WarpNode {
+    uint prev;
+    uint type;
+    vec2 _pad;   // std430 alignment
+    vec4 params; // x=reserved, y=param1, z=param2, w=param3
+};
+
+layout(std430, set = 0, binding = 9) readonly buffer WarpNodes {
+    WarpNode nodes[];
+} warpNodes;
+
+// Modifier stack nodes (per-command linked list)
+// Node indices are 1-based, 0 means "no modifiers".
+struct ModifierNode {
+    uint prev;
+    uint type;
+    vec2 _pad;   // std430 alignment
+    vec4 params; // Offset: x=offsetX, y=offsetY; Feather: x=radiusPx
+};
+
+layout(std430, set = 0, binding = 11) readonly buffer ModifierNodes {
+    ModifierNode nodes[];
+} modifierNodes;
+
+// Push constants
+layout(push_constant) uniform PushConstants {
+    uint screenWidth;
+    uint screenHeight;
+    uint commandCount;
+    uint tilesX;
+    uint tilesY;
+    uint _padding1;
+    uint _padding2;
+    uint _padding3;
+} pc;
+
+// Shape types (must match SdfShapeType enum)
+const uint SHAPE_CIRCLE = 0u;
+const uint SHAPE_RECT = 1u;
+const uint SHAPE_ROUNDED_RECT = 2u;
+const uint SHAPE_LINE = 3u;
+const uint SHAPE_BEZIER = 4u;
+const uint SHAPE_POLYLINE = 5u;
+const uint SHAPE_FILLED_POLYGON = 6u;
+const uint SHAPE_GLYPH = 7u;
+const uint SHAPE_TEXT_GROUP = 8u;
+const uint SHAPE_ROUNDED_RECT_PER_CORNER = 9u;
+const uint SHAPE_IMAGE = 10u;
+const uint SHAPE_GROUP_BEGIN = 100u;
+const uint SHAPE_GROUP_END = 101u;
+const uint SHAPE_MORPH_BEGIN = 102u;
+const uint SHAPE_MORPH_END = 103u;
+const uint SHAPE_MASK_PUSH = 104u;
+const uint SHAPE_MASK_POP = 105u;
+
+// Mask shape types (stored in Params.x)
+const uint MASK_CIRCLE = 0u;
+const uint MASK_RECT = 1u;
+const uint MASK_ROUNDED_RECT = 2u;
+const uint MASK_COMMAND_REF = 3u;
+
+// Mask combine ops (stored in mask command Color.z)
+const uint MASK_COMBINE_UNION = 0u;
+const uint MASK_COMBINE_INTERSECT = 1u;
+const uint MASK_COMBINE_SUBTRACT = 2u;
+const uint MASK_COMBINE_EXCLUDE = 3u;
+const uint MASK_COMBINE_ADD = 4u;
+const uint MASK_COMBINE_MULTIPLY = 5u;
+
+// Boolean operation types (must match SdfBooleanOp enum)
+const uint BOOL_NONE = 0u;
+const uint BOOL_UNION = 1u;
+const uint BOOL_INTERSECT = 2u;
+const uint BOOL_SUBTRACT = 3u;
+const uint BOOL_SMOOTH_UNION = 4u;
+const uint BOOL_SMOOTH_INTERSECT = 5u;
+const uint BOOL_SMOOTH_SUBTRACT = 6u;
+const uint BOOL_EXCLUDE = 7u;
+
+// Maximum group/morph/mask nesting depth
+const int MAX_GROUP_DEPTH = 8;
+const int MAX_MORPH_DEPTH = 8;
+const int MAX_MASK_DEPTH = 8;
+const int MAX_WARP_DEPTH = 256;
+const int MAX_MODIFIER_DEPTH = 256;
+
+const float PI = 3.14159265358979323846;
+const float TAU = 6.28318530717958647692;
+
+// Warp types (must match SdfWarpType enum)
+const uint WARP_NONE = 0u;
+const uint WARP_WAVE = 1u;
+const uint WARP_TWIST = 2u;
+const uint WARP_BULGE = 3u;
+const uint WARP_NOISE = 4u;
+const uint WARP_LATTICE = 5u;
+const uint WARP_REPEAT = 6u;
+
+// Modifier types (must match SdfModifierType enum)
+const uint MOD_NONE = 0u;
+const uint MOD_OFFSET = 1u;
+const uint MOD_FEATHER = 2u;
+
+// Flag bits (stored in Flags bits 16+)
+const uint FLAG_INTERNAL_GLYPH = 1u << 16u;  // Glyph is part of TextGroup, skip direct rendering
+const uint FLAG_INTERNAL_NO_RENDER = 1u << 17u;  // Skip rendering but still allow evaluation (e.g. masks)
+const uint FLAG_SECONDARY_FONT_ATLAS = 1u << 18u;  // Sample from secondary font atlas
+const uint FLAG_EXPLICIT_FONT_ATLAS_INDEX = 1u << 19u;  // Sample from bindless atlas array by index
+
+// Stroke trim/dash flags (stored in Flags low bits)
+const uint FLAG_TRIM_ENABLED = 1u << 0u;
+const uint FLAG_DASH_ENABLED = 1u << 1u;
+
+// Stroke cap styles (stored in Flags via bitfields)
+const uint CAP_MASK = 0xFu;
+const uint TRIM_CAP_SHIFT = 8u;
+const uint DASH_CAP_SHIFT = 12u;
+
+// Blend mode bitfield (stored in Flags bits 20-27)
+const uint BLEND_MODE_SHIFT = 20u;
+const uint BLEND_MODE_MASK = 0xFFu;
+
+const uint CAP_BUTT = 0u;
+const uint CAP_ROUND = 1u;
+const uint CAP_SQUARE = 2u;
+const uint CAP_SOFT = 3u;
+
+const uint TRIM_DASH_FLAGS_MASK =
+    FLAG_TRIM_ENABLED |
+    FLAG_DASH_ENABLED |
+    (CAP_MASK << TRIM_CAP_SHIFT) |
+    (CAP_MASK << DASH_CAP_SHIFT);
+
+// Helper to read command data
+// Each command is 208 bytes = 52 uints (std430 aligned)
+// std430 layout with 16-byte alignment for vec4:
+//   Type          : offset 0   (uint index 0)
+//   Flags         : offset 4   (uint index 1)
+//   Position      : offset 8   (uint index 2-3)
+//   Size          : offset 16  (uint index 4-5)
+//   Rotation      : offset 24  (uint index 6-7) - Rotation.y stores warp head pointer bitwise
+//   Color         : offset 32  (uint index 8-11)
+//   Params        : offset 48  (uint index 12-15)
+//   StrokeColor   : offset 64  (uint index 16-19)
+//   Effects       : offset 80  (uint index 20-23) - x=strokeWidth, y=glowRadius, z=softEdge, w=gradientType
+//   GradientColor : offset 96  (uint index 24-27)
+//   GradientParams: offset 112 (uint index 28-31) - x=angle/radiusScale/angleOffset, y=centerX, z=centerY, w=stopStart
+//   WarpParams    : offset 128 (uint index 32-35) - x=stopCount, y=modifierHead (bitwise), z=glyphAtlasIndex, w=reserved
+//   BooleanParams : offset 144 (uint index 36-37) - x=booleanOp, y=smoothness
+//   [padding]     : offset 152 (uint index 38-39) - padding for vec4 alignment
+//   ClipRect      : offset 160 (uint index 40-43) - x=left, y=top, z=width, w=height (w<0 = no clip)
+//   TrimParams    : offset 176 (uint index 44-47) - x=startPx, y=lengthPx, z=offsetPx, w=capSoftnessPx
+//   DashParams    : offset 192 (uint index 48-51) - x=dashPx, y=gapPx, z=offsetPx, w=capSoftnessPx
+const uint CMD_STRIDE = 52u;
+
+uint getCommandType(uint cmdIdx) {
+    return commands.data[cmdIdx * CMD_STRIDE + 0u];
+}
+
+uint getCommandFlags(uint cmdIdx) {
+    return commands.data[cmdIdx * CMD_STRIDE + 1u];
+}
+
+vec2 getCommandPosition(uint cmdIdx) {
+    uint offset = cmdIdx * CMD_STRIDE + 2u;
+    return vec2(
+        uintBitsToFloat(commands.data[offset]),
+        uintBitsToFloat(commands.data[offset + 1u])
+    );
+}
+
+vec2 getCommandSize(uint cmdIdx) {
+    uint offset = cmdIdx * CMD_STRIDE + 4u;
+    return vec2(
+        uintBitsToFloat(commands.data[offset]),
+        uintBitsToFloat(commands.data[offset + 1u])
+    );
+}
+
+vec2 getCommandRotation(uint cmdIdx) {
+    uint offset = cmdIdx * CMD_STRIDE + 6u;  // offset 24 bytes = index 6
+    return vec2(
+        uintBitsToFloat(commands.data[offset]),
+        uintBitsToFloat(commands.data[offset + 1u])
+    );
+}
+
+// Warp head pointer (stored bitwise in Rotation.y)
+uint getCommandWarpHead(uint cmdIdx) {
+    return commands.data[cmdIdx * CMD_STRIDE + 7u];
+}
+
+vec4 getCommandColor(uint cmdIdx) {
+    uint offset = cmdIdx * CMD_STRIDE + 8u;  // offset 32 bytes = index 8
+    return vec4(
+        uintBitsToFloat(commands.data[offset]),
+        uintBitsToFloat(commands.data[offset + 1u]),
+        uintBitsToFloat(commands.data[offset + 2u]),
+        uintBitsToFloat(commands.data[offset + 3u])
+    );
+}
+
+vec4 getCommandParams(uint cmdIdx) {
+    uint offset = cmdIdx * CMD_STRIDE + 12u;  // offset 48 bytes = index 12
+    return vec4(
+        uintBitsToFloat(commands.data[offset]),
+        uintBitsToFloat(commands.data[offset + 1u]),
+        uintBitsToFloat(commands.data[offset + 2u]),
+        uintBitsToFloat(commands.data[offset + 3u])
+    );
+}
+
+vec4 getCommandStrokeColor(uint cmdIdx) {
+    uint offset = cmdIdx * CMD_STRIDE + 16u;  // offset 64 bytes = index 16
+    return vec4(
+        uintBitsToFloat(commands.data[offset]),
+        uintBitsToFloat(commands.data[offset + 1u]),
+        uintBitsToFloat(commands.data[offset + 2u]),
+        uintBitsToFloat(commands.data[offset + 3u])
+    );
+}
+
+vec4 getCommandEffects(uint cmdIdx) {
+    uint offset = cmdIdx * CMD_STRIDE + 20u;  // offset 80 bytes = index 20
+    return vec4(
+        uintBitsToFloat(commands.data[offset]),
+        uintBitsToFloat(commands.data[offset + 1u]),
+        uintBitsToFloat(commands.data[offset + 2u]),
+        uintBitsToFloat(commands.data[offset + 3u])
+    );
+}
+
+vec4 getCommandGradientColor(uint cmdIdx) {
+    uint offset = cmdIdx * CMD_STRIDE + 24u;  // offset 96 bytes = index 24
+    return vec4(
+        uintBitsToFloat(commands.data[offset]),
+        uintBitsToFloat(commands.data[offset + 1u]),
+        uintBitsToFloat(commands.data[offset + 2u]),
+        uintBitsToFloat(commands.data[offset + 3u])
+    );
+}
+
+vec4 getCommandGradientParams(uint cmdIdx) {
+    uint offset = cmdIdx * CMD_STRIDE + 28u;  // offset 112 bytes = index 28
+    return vec4(
+        uintBitsToFloat(commands.data[offset]),
+        uintBitsToFloat(commands.data[offset + 1u]),
+        uintBitsToFloat(commands.data[offset + 2u]),
+        uintBitsToFloat(commands.data[offset + 3u])
+    );
+}
+
+vec4 getCommandWarpParams(uint cmdIdx) {
+    uint offset = cmdIdx * CMD_STRIDE + 32u;  // offset 128 bytes = index 32
+    return vec4(
+        uintBitsToFloat(commands.data[offset]),
+        uintBitsToFloat(commands.data[offset + 1u]),
+        uintBitsToFloat(commands.data[offset + 2u]),
+        uintBitsToFloat(commands.data[offset + 3u])
+    );
+}
+
+// Modifier head pointer (stored bitwise in WarpParams.y)
+uint getCommandModifierHead(uint cmdIdx) {
+    return commands.data[cmdIdx * CMD_STRIDE + 33u];
+}
+
+vec4 getCommandTrimParams(uint cmdIdx) {
+    uint offset = cmdIdx * CMD_STRIDE + 44u;  // offset 176 bytes = index 44
+    return vec4(
+        uintBitsToFloat(commands.data[offset]),
+        uintBitsToFloat(commands.data[offset + 1u]),
+        uintBitsToFloat(commands.data[offset + 2u]),
+        uintBitsToFloat(commands.data[offset + 3u])
+    );
+}
+
+vec4 getCommandDashParams(uint cmdIdx) {
+    uint offset = cmdIdx * CMD_STRIDE + 48u;  // offset 192 bytes = index 48
+    return vec4(
+        uintBitsToFloat(commands.data[offset]),
+        uintBitsToFloat(commands.data[offset + 1u]),
+        uintBitsToFloat(commands.data[offset + 2u]),
+        uintBitsToFloat(commands.data[offset + 3u])
+    );
+}
+
+vec2 getCommandBooleanParams(uint cmdIdx) {
+    uint offset = cmdIdx * CMD_STRIDE + 36u;  // offset 144 bytes = index 36
+    return vec2(
+        uintBitsToFloat(commands.data[offset]),
+        uintBitsToFloat(commands.data[offset + 1u])
+    );
+}
+
+vec4 getCommandClipRect(uint cmdIdx) {
+    uint offset = cmdIdx * CMD_STRIDE + 40u;  // offset 160 bytes = index 40
+    return vec4(
+        uintBitsToFloat(commands.data[offset]),
+        uintBitsToFloat(commands.data[offset + 1u]),
+        uintBitsToFloat(commands.data[offset + 2u]),
+        uintBitsToFloat(commands.data[offset + 3u])
+    );
+}
+
+// Check if pixel is inside clip rect. Returns true if visible (no clip or inside).
+bool isInsideClipRect(vec2 pixelPos, vec4 clipRect) {
+    // clipRect: x=left, y=top, z=width, w=height
+    // w < 0 means no clipping
+    if (clipRect.w < 0.0) return true;
+
+    return pixelPos.x >= clipRect.x &&
+           pixelPos.x < clipRect.x + clipRect.z &&
+           pixelPos.y >= clipRect.y &&
+           pixelPos.y < clipRect.y + clipRect.w;
+}
+
+// ============================================================================
+// Boolean operations
+// ============================================================================
+
+// Forward declaration (defined later).
+float erfApprox(float x);
+
+// Basic boolean operations
+float opUnion(float d1, float d2) {
+    return min(d1, d2);
+}
+
+float opIntersect(float d1, float d2) {
+    return max(d1, d2);
+}
+
+float opSubtract(float d1, float d2) {
+    return max(d1, -d2);
+}
+
+// Symmetric difference (XOR): (A\\B) ∪ (B\\A)
+float opExclude(float d1, float d2) {
+    return min(max(d1, -d2), max(d2, -d1));
+}
+
+// Smooth min/max using polynomial approximation
+float smin(float a, float b, float k) {
+    float h = max(k - abs(a - b), 0.0) / k;
+    return min(a, b) - h * h * k * 0.25;
+}
+
+float smax(float a, float b, float k) {
+    return -smin(-a, -b, k);
+}
+
+// Smooth boolean operations
+float opSmoothUnion(float d1, float d2, float k) {
+    return smin(d1, d2, k);
+}
+
+float opSmoothIntersect(float d1, float d2, float k) {
+    return smax(d1, d2, k);
+}
+
+float opSmoothSubtract(float d1, float d2, float k) {
+    return smax(d1, -d2, k);
+}
+
+// Apply boolean operation and return the blend factor to mix styling (e.g. fill colors).
+// blendT is "how much to take from newD" when mixing: mix(accumulated, new, blendT).
+float applyBooleanWithBlend(float accumulated, float newD, uint op, float smoothness, out float blendT) {
+    blendT = 0.0;
+    float k = max(smoothness, 0.0001);
+
+    switch (op) {
+        case BOOL_NONE:
+            blendT = 1.0;
+            return newD;
+        case BOOL_UNION:
+            blendT = (newD < accumulated) ? 1.0 : 0.0;
+            return opUnion(accumulated, newD);
+        case BOOL_INTERSECT:
+            blendT = (newD > accumulated) ? 1.0 : 0.0;
+            return opIntersect(accumulated, newD);
+        case BOOL_SUBTRACT:
+            blendT = 0.0;
+            return opSubtract(accumulated, newD);
+        case BOOL_SMOOTH_UNION:
+        {
+            float x = newD - accumulated;
+
+            // Keep the distance math unchanged, but use a Gaussian/erf-based soft decision
+            // for style blending to reduce visible seams across booleans.
+            float hGeom = clamp(0.5 + 0.5 * x / k, 0.0, 1.0);
+            float blendStyle = clamp(0.5 - 0.5 * erfApprox(x / (1.41421356237 * k)), 0.0, 1.0);
+            blendT = blendStyle;
+
+            return mix(newD, accumulated, hGeom) - k * hGeom * (1.0 - hGeom);
+        }
+        case BOOL_SMOOTH_INTERSECT:
+        {
+            float x = accumulated - newD;
+
+            // Keep the distance math unchanged, but use a Gaussian/erf-based soft decision
+            // for style blending to reduce visible seams across booleans.
+            float hGeom = clamp(0.5 + 0.5 * x / k, 0.0, 1.0);
+            float blendStyle = clamp(0.5 - 0.5 * erfApprox(x / (1.41421356237 * k)), 0.0, 1.0);
+            blendT = blendStyle;
+
+            return mix(newD, accumulated, hGeom) + k * hGeom * (1.0 - hGeom);
+        }
+        case BOOL_SMOOTH_SUBTRACT:
+        {
+            // Smooth subtract is a smooth max between the accumulated distance and the negated new distance:
+            // smax(accumulated, -newD, k). The h term must follow the smooth max form.
+            float h = clamp(0.5 + 0.5 * (accumulated - (-newD)) / k, 0.0, 1.0);
+            blendT = 0.0;
+            return mix(-newD, accumulated, h) + k * h * (1.0 - h);
+        }
+        case BOOL_EXCLUDE:
+            blendT = (newD < accumulated) ? 1.0 : 0.0;
+            return opExclude(accumulated, newD);
+        default:
+            blendT = 1.0;
+            return newD;
+    }
+}
+
+// Apply boolean operation based on op type (distance only).
+float applyBoolean(float accumulated, float newD, uint op, float smoothness) {
+    float blendT;
+    return applyBooleanWithBlend(accumulated, newD, op, smoothness, blendT);
+}
+
+// ============================================================================
+// SDF functions
+float sdCircle(vec2 p, float r) {
+    return length(p) - r;
+}
+
+float sdBox(vec2 p, vec2 b) {
+    vec2 d = abs(p) - b;
+    return length(max(d, 0.0)) + min(max(d.x, d.y), 0.0);
+}
+
+float sdRoundedBox(vec2 p, vec2 b, float r) {
+    vec2 q = abs(p) - b + r;
+    return min(max(q.x, q.y), 0.0) + length(max(q, 0.0)) - r;
+}
+
+// SDF: Rounded box with per-corner radii (Inigo Quilez technique)
+// r.x = top-left, r.y = top-right, r.z = bottom-right, r.w = bottom-left
+float sdRoundedBoxPerCorner(vec2 p, vec2 b, vec4 r) {
+    // Select the appropriate corner radius based on quadrant
+    r.xy = (p.x > 0.0) ? r.yz : r.xw;  // Right side uses y/z, left uses x/w
+    r.x  = (p.y > 0.0) ? r.y  : r.x;   // Top uses second, bottom uses first
+    vec2 q = abs(p) - b + r.x;
+    return min(max(q.x, q.y), 0.0) + length(max(q, 0.0)) - r.x;
+}
+
+// SDF: Capsule/Line segment with rounded ends
+// a, b: endpoints, r: radius (half thickness)
+float sdCapsule(vec2 p, vec2 a, vec2 b, float r) {
+    vec2 pa = p - a;
+    vec2 ba = b - a;
+    float h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
+    return length(pa - ba * h) - r;
+}
+
+// SDF: Quadratic Bezier curve (Inigo Quilez technique)
+// p0: start, p1: control point, p2: end, thickness: half-width
+float sdBezier(vec2 p, vec2 p0, vec2 p1, vec2 p2, float thickness) {
+    vec2 a = p1 - p0;
+    vec2 b = p0 - 2.0 * p1 + p2;
+    vec2 c = a * 2.0;
+    vec2 d = p0 - p;
+
+    // Handle degenerate case: bezier is nearly a straight line
+    float bb = dot(b, b);
+    if (bb < 0.0001) {
+        vec2 pa = p - p0;
+        vec2 ba = p2 - p0;
+        float baba = dot(ba, ba);
+        if (baba < 0.0001) {
+            // All points coincident - treat as point
+            return length(pa) - thickness;
+        }
+        float h = clamp(dot(pa, ba) / baba, 0.0, 1.0);
+        return length(pa - ba * h) - thickness;
+    }
+
+    // Cubic coefficients for finding closest point
+    float kk = 1.0 / bb;
+    float kx = kk * dot(a, b);
+    float ky = kk * (2.0 * dot(a, a) + dot(d, b)) / 3.0;
+    float kz = kk * dot(d, a);
+
+    float res = 0.0;
+
+    float pp = ky - kx * kx;
+    float qq = kx * (2.0 * kx * kx - 3.0 * ky) + kz;
+    float disc = qq * qq + 4.0 * pp * pp * pp;
+
+    if (disc >= 0.0) {
+        // One real root
+        disc = sqrt(disc);
+        float x1 = (-qq + disc) * 0.5;
+        float x2 = (-qq - disc) * 0.5;
+        x1 = sign(x1) * pow(abs(x1), 1.0/3.0);
+        x2 = sign(x2) * pow(abs(x2), 1.0/3.0);
+        float t = clamp(x1 + x2 - kx, 0.0, 1.0);
+        vec2 q = d + (c + b * t) * t;
+        res = dot(q, q);
+    } else {
+        // Three real roots - use trigonometric method
+        float z = sqrt(-pp);
+        float denom = pp * z * 2.0;
+        if (abs(denom) < 0.0001) {
+            // Fallback: sample multiple t values
+            res = 1e10;
+            for (int i = 0; i <= 8; i++) {
+                float t = float(i) / 8.0;
+                vec2 q = d + (c + b * t) * t;
+                res = min(res, dot(q, q));
+            }
+        } else {
+            float acosArg = clamp(qq / denom, -1.0, 1.0);
+            float v = acos(acosArg) / 3.0;
+            float m = cos(v);
+            float n = sin(v) * 1.732050808;  // sqrt(3)
+            float t1 = clamp(m + m * z - kx, 0.0, 1.0);
+            float t2 = clamp(-m - n * z - kx, 0.0, 1.0);
+            vec2 q1 = d + (c + b * t1) * t1;
+            vec2 q2 = d + (c + b * t2) * t2;
+            res = min(dot(q1, q1), dot(q2, q2));
+        }
+    }
+
+    return sqrt(max(res, 0.0)) - thickness;
+}
+
+// ============================================================================
+// Mask evaluation functions
+// ============================================================================
+
+// Forward declaration (defined later) so masks can reference arbitrary draw commands.
+float evaluateSdf(uint cmdIdx, vec2 pixelPos);
+// Forward declaration (defined later) so masks can apply per-command warp stacks.
+vec2 applyWarpChain(vec2 p, uint warpHead);
+
+struct SdfEval {
+    float d;         // signed distance
+    float s;         // arc-length position in pixels
+    float sAlt;      // alternate arc-length position in pixels (used near corners/joins)
+    float totalLen;  // total contour length in pixels
+    float featherSigmaSqr; // combined feather sigma^2 (0 = no feather)
+    uint featherDirection; // FEATHER_DIR_*
+    uint flags;      // EVAL_* flags
+};
+
+// Forward declaration (defined later).
+SdfEval evaluateSdfEval(uint cmdIdx, vec2 pixelPos);
+vec4 sampleImageColor(uint cmdIdx, vec2 uv);
+
+// Forward declaration (defined later) for paint-driven masks.
+vec4 computeGradient(vec4 startColor, vec4 endColor, vec2 localPos, vec2 size, float gradientType, vec4 gradientParams, uint stopStart, uint stopCount);
+
+// Clamp local position to an approximate boundary point for shadow/blur color sampling.
+// This avoids sampling gradients "outside" the shape where parameters often clamp to endpoints,
+// which otherwise makes blurred gradients look like a single flat color.
+vec2 clampLocalPosToShape(uint shapeType, vec2 localPos, vec2 size) {
+    // Common box-like shapes share the same size semantics.
+    if (shapeType == SHAPE_RECT ||
+        shapeType == SHAPE_ROUNDED_RECT ||
+        shapeType == SHAPE_ROUNDED_RECT_PER_CORNER ||
+        shapeType == SHAPE_GLYPH ||
+        shapeType == SHAPE_IMAGE ||
+        shapeType == SHAPE_TEXT_GROUP) {
+        return clamp(localPos, -size, size);
+    }
+
+    if (shapeType == SHAPE_CIRCLE) {
+        float radius = max(size.x, 0.0);
+        float lenSq = dot(localPos, localPos);
+        float rSq = radius * radius;
+        if (lenSq > rSq && radius > 0.0) {
+            return localPos * (radius * inversesqrt(max(lenSq, 1e-10)));
+        }
+        return localPos;
+    }
+
+    return localPos;
+}
+vec2 computeFillLocalPos(uint cmdIdx, vec2 pixelPos);
+
+// Evaluate a mask shape's SDF at the given position
+// Returns distance (negative = inside mask)
+float evaluateMaskSdf(uint cmdIdx, vec2 pixelPos) {
+    vec4 params = getCommandParams(cmdIdx);
+    vec2 center = getCommandPosition(cmdIdx);
+    vec2 size = getCommandSize(cmdIdx);
+
+    uint maskType = uint(params.x);
+    float cornerRadius = params.w;  // Only used for rounded rect
+
+    if (maskType == MASK_COMMAND_REF) {
+        uint refCmdIdx = uint(center.x + 0.5);
+        return evaluateSdf(refCmdIdx, pixelPos);
+    }
+
+    vec2 p = pixelPos - center;
+    uint warpHead = getCommandWarpHead(cmdIdx);
+    if (warpHead != 0u) {
+        p = applyWarpChain(p, warpHead);
+    }
+
+    if (maskType == MASK_CIRCLE) {
+        return sdCircle(p, size.x);  // size.x = radius
+    }
+    else if (maskType == MASK_RECT) {
+        return sdBox(p, size);
+    }
+    else if (maskType == MASK_ROUNDED_RECT) {
+        return sdRoundedBox(p, size, cornerRadius);
+    }
+
+    return 1e10;  // Unknown mask type - no masking
+}
+
+// Compute mask alpha from SDF distance
+// softEdge controls the transition width
+float computeMaskCoverageAlpha(float d, float softEdge) {
+    float alpha = clamp(0.5 - d / max(softEdge, 0.5), 0.0, 1.0);
+    return alpha;
+}
+
+// Approximation of erf(x) (Abramowitz & Stegun 7.1.26).
+float erfApprox(float x) {
+    float s = sign(x);
+    float ax = abs(x);
+    float t = 1.0 / (1.0 + 0.3275911 * ax);
+    float y = 1.0 - (((((1.061405429 * t - 1.453152027) * t + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t) * exp(-ax * ax);
+    return s * y;
+}
+
+// Coverage from signed distance. With feathering, uses a Gaussian-CDF-like falloff.
+// Without feathering, preserves legacy linear soft-edge behavior.
+const uint FEATHER_DIR_BOTH = 0u;
+const uint FEATHER_DIR_OUTSIDE = 1u;
+const uint FEATHER_DIR_INSIDE = 2u;
+
+float computeCoverageAlpha(float d, float softEdge, float featherSigmaSqr, uint featherDirection) {
+    float se = max(softEdge, 0.5);
+    if (featherSigmaSqr <= 1e-8) {
+        float a = clamp(0.5 - d / se, 0.0, 1.0);
+        if (featherDirection == FEATHER_DIR_OUTSIDE) {
+            return clamp(a * 2.0, 0.0, 1.0);
+        }
+        if (featherDirection == FEATHER_DIR_INSIDE) {
+            return clamp(a * 2.0 - 1.0, 0.0, 1.0);
+        }
+        return a;
+    }
+
+    float sigmaAa = se / 3.0;
+    float sigmaSqr = max(featherSigmaSqr + sigmaAa * sigmaAa, 1e-8);
+    float invSigma = inversesqrt(sigmaSqr);
+    float x = d * invSigma * 0.70710678118; // d / (sqrt(2) * sigma)
+    float e = erfApprox(x);
+    float a = clamp(0.5 - 0.5 * e, 0.0, 1.0);
+    if (featherDirection == FEATHER_DIR_OUTSIDE) {
+        return clamp(a * 2.0, 0.0, 1.0);
+    }
+    if (featherDirection == FEATHER_DIR_INSIDE) {
+        return clamp(a * 2.0 - 1.0, 0.0, 1.0);
+    }
+    return a;
+}
+
+// Separable Gaussian-blurred box coverage (true 2D coverage for axis-aligned boxes).
+// This avoids diagonal "feature switch" seams that appear when applying a 1D CDF to sdBox().
+float computeGaussianBlurredBoxCoverage(vec2 p, vec2 halfSize, float invSigma) {
+    float ax0 = (p.x + halfSize.x) * invSigma * 0.70710678118;
+    float ax1 = (p.x - halfSize.x) * invSigma * 0.70710678118;
+    float ay0 = (p.y + halfSize.y) * invSigma * 0.70710678118;
+    float ay1 = (p.y - halfSize.y) * invSigma * 0.70710678118;
+
+    float cdfAx0 = 0.5 + 0.5 * erfApprox(ax0);
+    float cdfAx1 = 0.5 + 0.5 * erfApprox(ax1);
+    float cdfAy0 = 0.5 + 0.5 * erfApprox(ay0);
+    float cdfAy1 = 0.5 + 0.5 * erfApprox(ay1);
+
+    float covX = clamp(cdfAx0 - cdfAx1, 0.0, 1.0);
+    float covY = clamp(cdfAy0 - cdfAy1, 0.0, 1.0);
+    return clamp(covX * covY, 0.0, 1.0);
+}
+
+float computeBoxCoverageAlpha(vec2 p, vec2 halfSize, float d, float softEdge, float featherSigmaSqr, uint featherDirection) {
+    float se = max(softEdge, 0.5);
+    if (featherSigmaSqr <= 1e-8) {
+        return computeCoverageAlpha(d, se, 0.0, featherDirection);
+    }
+
+    float sigmaAa = se / 3.0;
+    float sigmaSqr = max(featherSigmaSqr + sigmaAa * sigmaAa, 1e-8);
+    float invSigma = inversesqrt(sigmaSqr);
+    float a = computeGaussianBlurredBoxCoverage(p, halfSize, invSigma);
+
+    if (featherDirection == FEATHER_DIR_OUTSIDE) {
+        return clamp(a * 2.0, 0.0, 1.0);
+    }
+    if (featherDirection == FEATHER_DIR_INSIDE) {
+        return clamp(a * 2.0 - 1.0, 0.0, 1.0);
+    }
+    return a;
+}
+
+float applyMaskInvert(float alpha, bool invert) {
+    return invert ? (1.0 - alpha) : alpha;
+}
+
+float applyMaskCombine(float a, float b, uint op) {
+    if (op == MASK_COMBINE_INTERSECT) return min(a, b);
+    if (op == MASK_COMBINE_SUBTRACT) return a * (1.0 - b);
+    if (op == MASK_COMBINE_EXCLUDE) return abs(a - b);
+    if (op == MASK_COMBINE_ADD) return clamp(a + b, 0.0, 1.0);
+    if (op == MASK_COMBINE_MULTIPLY) return a * b;
+    return max(a, b); // MASK_COMBINE_UNION (default)
+}
+
+float computeMaskStrengthFromFill(vec4 fillAtPixel, float gradientType) {
+    float a = clamp(fillAtPixel.a, 0.0, 1.0);
+    if (gradientType < 0.5) {
+        return a;
+    }
+
+    // For gradients, additionally modulate by brightness so black->white ramps can act as mask ramps.
+    float lum = dot(fillAtPixel.rgb, vec3(0.2126, 0.7152, 0.0722));
+    return a * clamp(lum, 0.0, 1.0);
+}
+
+float computeMaskPaintStrength(uint maskCmdIdx, vec2 pixelPos) {
+    vec4 params = getCommandParams(maskCmdIdx);
+    uint maskType = uint(params.x);
+    if (maskType != MASK_COMMAND_REF) {
+        return 1.0;
+    }
+
+    vec2 center = getCommandPosition(maskCmdIdx);
+    uint refCmdIdx = uint(center.x + 0.5);
+    uint refShapeType = getCommandType(refCmdIdx);
+
+    if (refShapeType == SHAPE_IMAGE) {
+        vec2 localPos = computeFillLocalPos(refCmdIdx, pixelPos);
+        vec2 halfSize = getCommandSize(refCmdIdx);
+        vec2 local01 = (localPos + halfSize) / max(halfSize * 2.0, vec2(1e-6));
+        if (local01.x < 0.0 || local01.x > 1.0 || local01.y < 0.0 || local01.y > 1.0) {
+            return 0.0;
+        }
+
+        vec4 uvRect = getCommandParams(refCmdIdx);
+        vec2 uv = mix(uvRect.xy, uvRect.zw, clamp(local01, 0.0, 1.0));
+        vec4 tint = getCommandColor(refCmdIdx);
+        vec4 texel = sampleImageColor(refCmdIdx, uv) * tint;
+        return computeMaskStrengthFromFill(texel, 0.0);
+    }
+
+    vec4 baseFillColor = getCommandColor(refCmdIdx);
+    vec4 baseStrokeColor = getCommandStrokeColor(refCmdIdx);
+    vec4 gradientColor = getCommandGradientColor(refCmdIdx);
+    vec4 gradientParams = getCommandGradientParams(refCmdIdx);
+    vec4 effects = getCommandEffects(refCmdIdx);
+    float gradientType = effects.w;
+    vec4 warpParams = getCommandWarpParams(refCmdIdx);
+    uint stopCount = uint(warpParams.x);
+    uint stopStart = uint(gradientParams.w);
+    vec2 size = getCommandSize(refCmdIdx);
+    vec2 localPos = computeFillLocalPos(refCmdIdx, pixelPos);
+
+    bool isStrokeOnly = effects.x > 0.0 && baseFillColor.a <= 0.00001;
+    vec4 startColor = isStrokeOnly ? baseStrokeColor : baseFillColor;
+    vec4 paintAtPixel = computeGradient(startColor, gradientColor, localPos, size, gradientType, gradientParams, stopStart, stopCount);
+    return computeMaskStrengthFromFill(paintAtPixel, gradientType);
+}
+
+float computeMaskCommandAlpha(uint maskCmdIdx, vec2 pixelPos) {
+    vec4 params = getCommandParams(maskCmdIdx);
+    float softEdge = params.y;
+    bool invert = params.z > 0.5;
+
+    float coverage = 0.0;
+    uint maskType = uint(params.x);
+    if (maskType == MASK_COMMAND_REF) {
+        uint refCmdIdx = uint(getCommandPosition(maskCmdIdx).x + 0.5);
+        float d = evaluateSdf(refCmdIdx, pixelPos);
+        uint refShapeType = getCommandType(refCmdIdx);
+        if (refShapeType != SHAPE_LINE && refShapeType != SHAPE_POLYLINE && refShapeType != SHAPE_BEZIER) {
+            vec4 effects = getCommandEffects(refCmdIdx);
+            float strokeWidth = effects.x;
+            vec4 fillColor = getCommandColor(refCmdIdx);
+            if (strokeWidth > 0.0) {
+                float halfW = strokeWidth * 0.5;
+                float strokeD = abs(d) - halfW;
+                bool isStrokeOnly = fillColor.a <= 0.00001;
+                d = isStrokeOnly ? strokeD : min(d, strokeD);
+            }
+        }
+
+        coverage = computeMaskCoverageAlpha(d, softEdge);
+    } else {
+        float d = evaluateMaskSdf(maskCmdIdx, pixelPos);
+        coverage = computeMaskCoverageAlpha(d, softEdge);
+    }
+
+    vec4 meta = getCommandColor(maskCmdIdx);
+    bool usePaint = meta.x > 0.5;
+    float strength = usePaint ? computeMaskPaintStrength(maskCmdIdx, pixelPos) : 1.0;
+
+    float alpha = clamp(coverage * strength, 0.0, 1.0);
+    return applyMaskInvert(alpha, invert);
+}
+
+// Global mask stack state (set in main, used by rendering functions)
+// These need to be globals since GLSL doesn't support passing arrays to functions easily
+uint g_maskCmdStack[MAX_MASK_DEPTH];
+int g_maskUnionStack[MAX_MASK_DEPTH];
+float g_maskAlphaStack[MAX_MASK_DEPTH];
+int g_maskDepth = 0;
+float g_maskCombinedAlpha = 1.0;
+
+float computeMaskLevelAlpha(uint baseCmdIdx, int unionCount, vec2 pixelPos) {
+    vec4 baseMeta = getCommandColor(baseCmdIdx);
+    bool useAdvanced = baseMeta.x > 0.5;
+
+    // Legacy mode: union SDFs, then compute a single coverage alpha for the whole level.
+    if (!useAdvanced) {
+        float levelD = evaluateMaskSdf(baseCmdIdx, pixelPos);
+        for (int u = 0; u < unionCount; u++) {
+            uint unionCmdIdx = baseCmdIdx + uint(u) + 1u;
+            float unionD = evaluateMaskSdf(unionCmdIdx, pixelPos);
+            levelD = min(levelD, unionD);
+        }
+
+        vec4 params = getCommandParams(baseCmdIdx);
+        float softEdge = params.y;
+        bool invert = params.z > 0.5;
+        float alpha = computeMaskCoverageAlpha(levelD, softEdge);
+        return applyMaskInvert(alpha, invert);
+    }
+
+    float acc = computeMaskCommandAlpha(baseCmdIdx, pixelPos);
+    for (int u = 0; u < unionCount; u++) {
+        uint unionCmdIdx = baseCmdIdx + uint(u) + 1u;
+        float next = computeMaskCommandAlpha(unionCmdIdx, pixelPos);
+        vec4 meta = getCommandColor(unionCmdIdx);
+        uint op = uint(meta.z + 0.5);
+        acc = applyMaskCombine(acc, next, op);
+    }
+
+    return clamp(acc, 0.0, 1.0);
+}
+
+// Compute combined mask alpha from all active masks in the stack
+// Masks at each level are ANDed together (multiply alphas)
+// Union masks at the same level are ORed together (union SDF)
+float computeCombinedMaskAlpha(vec2 pixelPos) {
+    if (g_maskDepth == 0) return 1.0;
+
+    float combinedAlpha = 1.0;
+
+    for (int level = 0; level < g_maskDepth; level++) {
+        uint baseCmdIdx = g_maskCmdStack[level];
+        int unionCount = g_maskUnionStack[level];
+        combinedAlpha *= computeMaskLevelAlpha(baseCmdIdx, unionCount, pixelPos);
+    }
+
+    return combinedAlpha;
+}
+
+// ============================================================================
+// Warp functions - transform coordinates BEFORE SDF evaluation
+// ============================================================================
+
+// Wave warp: sinusoidal distortion
+// param1 = frequency (waves per 100 pixels)
+// param2 = amplitude (displacement in pixels)
+// param3 = phase offset (for animation)
+vec2 applyWaveWarp(vec2 p, float frequency, float amplitude, float phase) {
+    // Horizontal wave affecting Y coordinate
+    float wave = sin(p.x * frequency * 0.01 + phase) * amplitude;
+    return vec2(p.x, p.y + wave);
+}
+
+// Twist warp: rotates coordinates based on distance from origin
+// param1 = strength (radians per 100 pixels from center)
+vec2 applyTwistWarp(vec2 p, float strength) {
+    float dist = length(p);
+    float angle = dist * strength * 0.01;
+    float c = cos(angle);
+    float s = sin(angle);
+    return vec2(p.x * c - p.y * s, p.x * s + p.y * c);
+}
+
+// Bulge warp: fisheye/pinch effect
+// param1 = strength (positive = bulge out, negative = pinch in)
+// param2 = radius (0 = use distance-based falloff)
+vec2 applyBulgeWarp(vec2 p, float strength, float radius) {
+    float dist = length(p);
+    if (dist < 0.001) return p;  // Avoid division by zero
+
+    float effectRadius = radius > 0.0 ? radius : 200.0;
+    float factor = dist / effectRadius;
+
+    // Smooth falloff
+    float t = clamp(1.0 - factor, 0.0, 1.0);
+    float displacement = t * t * strength;
+
+    // Scale coordinates (positive strength = shrink = bulge out in SDF)
+    float scale = 1.0 + displacement * 0.01;
+    return p * scale;
+}
+
+// Repeat warp: tiles local coordinates to repeat the shape.
+// periodX/periodY are in pixels; offset is in pixels (applied to both axes before repeat).
+vec2 applyRepeatWarp(vec2 p, float periodX, float periodY, float offsetPx) {
+    float px = max(periodX, 0.001);
+    float py = periodY > 0.001 ? periodY : px;
+    vec2 q = p + vec2(offsetPx);
+
+    q.x = mod(q.x + px * 0.5, px) - px * 0.5;
+    q.y = mod(q.y + py * 0.5, py) - py * 0.5;
+    return q;
+}
+
+// Get lattice point at (row, col) for given lattice index
+vec2 getLatticePoint(uint latticeIdx, int row, int col) {
+    // Clamp to valid range
+    row = clamp(row, 0, 3);
+    col = clamp(col, 0, 3);
+    uint idx = latticeIdx * 16u + uint(row * 4 + col);
+    return lattices.points[idx];
+}
+
+// Lattice warp: 4x4 FFD (Free-Form Deformation)
+// param1 = lattice index (float, cast to int)
+// param2 = scale X (size of lattice area in pixels)
+// param3 = scale Y (size of lattice area in pixels)
+vec2 applyLatticeWarp(vec2 p, float latticeIdx, float scaleX, float scaleY) {
+    uint idx = uint(latticeIdx);
+
+    // Normalize p from pixel space to [0, 1] based on scale
+    // p is in shape-local coords centered at origin, so remap from [-scale/2, scale/2] to [0, 1]
+    vec2 uv = (p / vec2(scaleX, scaleY)) + 0.5;
+
+    // If outside lattice bounds, apply edge deformation
+    uv = clamp(uv, 0.0, 1.0);
+
+    // Map to 4x4 grid (3 cells in each direction)
+    vec2 gridPos = uv * 3.0;
+    ivec2 cell = ivec2(floor(gridPos));
+    vec2 frac = fract(gridPos);
+
+    // Bilinear interpolation of the 4 surrounding control points
+    vec2 p00 = getLatticePoint(idx, cell.y, cell.x);
+    vec2 p10 = getLatticePoint(idx, cell.y, cell.x + 1);
+    vec2 p01 = getLatticePoint(idx, cell.y + 1, cell.x);
+    vec2 p11 = getLatticePoint(idx, cell.y + 1, cell.x + 1);
+
+    // Bilinear blend
+    vec2 offset = mix(
+        mix(p00, p10, frac.x),
+        mix(p01, p11, frac.x),
+        frac.y
+    );
+
+    // Apply offset (scaled back to pixel space)
+    return p + offset * vec2(scaleX, scaleY) * 0.5;
+}
+
+// ============================================================================
+// Polyline helpers (segmented buffer)
+// ============================================================================
+
+// Get polyline point directly from flat buffer
+vec2 getPoint(uint pointIdx) {
+    return polylinePoints.points[pointIdx];
+}
+
+float getPointLength(uint pointIdx) {
+    return polylineLengths.lengths[pointIdx];
+}
+
+// Get polyline header data
+// Header layout: [boundsMinX, boundsMinY, boundsMaxX, boundsMaxY, startIndex, pointCount]
+vec4 getPolylineBounds(uint headerIdx) {
+    uint offset = headerIdx * 6u;
+    return vec4(
+        headers.data[offset],      // minX
+        headers.data[offset + 1u], // minY
+        headers.data[offset + 2u], // maxX
+        headers.data[offset + 3u]  // maxY
+    );
+}
+
+// SDF: Polyline - union of capsules for each segment
+// startIdx = start index into point buffer
+// pointCount = number of points (segments = pointCount - 1)
+// thickness = half-width of the stroke
+// boundsMin/Max = bounding box for early-out
+float sdPolyline(vec2 p, uint startIdx, uint pointCount, float thickness, vec2 boundsMin, vec2 boundsMax) {
+    // Early-out: skip if outside bounding box + thickness margin
+    float margin = thickness + 2.0;
+    if (p.x < boundsMin.x - margin || p.x > boundsMax.x + margin ||
+        p.y < boundsMin.y - margin || p.y > boundsMax.y + margin) {
+        return 1e10;
+    }
+
+    float d = 1e10;
+
+    // Iterate through each segment
+    for (uint i = 0u; i < pointCount - 1u; i++) {
+        vec2 a = getPoint(startIdx + i);
+        vec2 b = getPoint(startIdx + i + 1u);
+        d = min(d, sdCapsule(p, a, b, thickness));
+    }
+
+    return d;
+}
+
+// SDF: Filled polygon using winding number (Inigo Quilez technique)
+// Works for any closed polygon (convex or concave)
+// Returns negative inside, positive outside
+float sdFilledPolygon(vec2 p, uint startIdx, uint pointCount, vec2 boundsMin, vec2 boundsMax) {
+    // Early-out: skip if outside bounding box + margin
+    // Note: this margin must cover boolean/group effects (glow/shadow) because polygon commands can be
+    // included in tiles beyond their raw bounds (e.g. by a boolean group's expanded bounds).
+    // A too-small margin causes tile-aligned artifacts where booleans/glows stop applying.
+    float margin = 64.0;
+    if (p.x < boundsMin.x - margin || p.x > boundsMax.x + margin ||
+        p.y < boundsMin.y - margin || p.y > boundsMax.y + margin) {
+        return 1e10;
+    }
+
+    float minDistSq = 1e20;
+    bool inside = false;
+
+    // Use an even-odd crossing test for the sign and a min-edge-distance for magnitude.
+    // This is more numerically stable for editor-authored polygons (including collinear / repeated points).
+    // NOTE: We bias the ray test slightly to avoid p.y landing exactly on a vertex Y, which can cause
+    // tile-aligned "notches" on tiny UI polygons due to equality edge cases.
+    float py = p.y + 1e-5;
+    vec2 prev = getPoint(startIdx + (pointCount - 1u));
+    for (uint i = 0u; i < pointCount; i++) {
+        vec2 curr = getPoint(startIdx + i);
+
+        // Distance to segment [prev, curr]
+        vec2 e = curr - prev;
+        vec2 w = p - prev;
+        float edgeLenSq = dot(e, e);
+        if (edgeLenSq > 1e-8) {
+            float t = clamp(dot(w, e) / edgeLenSq, 0.0, 1.0);
+            vec2 b = w - e * t;
+            minDistSq = min(minDistSq, dot(b, b));
+        } else {
+            // Degenerate edge: distance to vertex only.
+            minDistSq = min(minDistSq, dot(w, w));
+        }
+
+        // Even-odd rule crossing test (ray to +X).
+        bool condY = (curr.y > py) != (prev.y > py);
+        if (condY) {
+            float denom = (prev.y - curr.y);
+            if (abs(denom) > 1e-8) {
+                float xIntersect = (prev.x - curr.x) * (py - curr.y) / denom + curr.x;
+                if (p.x < xIntersect) {
+                    inside = !inside;
+                }
+            }
+        }
+
+        prev = curr;
+    }
+
+    float dist = sqrt(minDistSq);
+    return inside ? -dist : dist;
+}
+
+// ============================================================================
+// Glyph SDF evaluation (returns signed distance without rendering)
+// ============================================================================
+
+float sampleGlyphSdf(uint cmdIdx, vec2 uv) {
+    uint flags = getCommandFlags(cmdIdx);
+    if ((flags & FLAG_EXPLICIT_FONT_ATLAS_INDEX) != 0u) {
+        vec4 warpParams = getCommandWarpParams(cmdIdx);
+        uint atlasIndex = uint(max(warpParams.z, 0.0));
+        return textureLod(fontAtlases[nonuniformEXT(atlasIndex)], uv, 0.0).a;
+    }
+    if ((flags & FLAG_SECONDARY_FONT_ATLAS) != 0u) {
+        return textureLod(fontAtlasSecondary, uv, 0.0).a;
+    }
+    return textureLod(fontAtlasPrimary, uv, 0.0).a;
+}
+
+vec4 sampleImageColor(uint cmdIdx, vec2 uv) {
+    vec4 warpParams = getCommandWarpParams(cmdIdx);
+    uint textureIndex = min(uint(max(warpParams.z, 0.0)), 255u);
+    return textureLod(fontAtlases[nonuniformEXT(textureIndex)], uv, 0.0);
+}
+
+float evaluateGlyphSdf(uint cmdIdx, vec2 pixelPos) {
+    vec2 center = getCommandPosition(cmdIdx);
+    vec2 halfSize = getCommandSize(cmdIdx);
+
+    // Transform to glyph-local coordinates
+    vec2 p = pixelPos - center;
+
+    // Convert to [0,1] for UV lookup
+    vec2 local01 = (p + halfSize) / (halfSize * 2.0);
+
+    // Sample UV (clamped to valid range)
+    vec4 uvRect = getCommandParams(cmdIdx);
+    vec2 uv = mix(uvRect.xy, uvRect.zw, clamp(local01, 0.0, 1.0));
+
+    // Sample SDF value from atlas (0.5 = edge, >0.5 = inside, <0.5 = outside)
+    float sdfValue = sampleGlyphSdf(cmdIdx, uv);
+
+    // Convert 0-1 SDF value to signed distance in pixels
+    // Multiplier = 256 / SdfPixelDistScale (8.0 in font compiler) = 32.0
+    float pixelScale = max(halfSize.x, halfSize.y) * 2.0 / 32.0;
+    float sdfDist = (0.5 - sdfValue) * pixelScale * 32.0;
+
+    // Check if outside the glyph quad
+    if (local01.x < 0.0 || local01.x > 1.0 ||
+        local01.y < 0.0 || local01.y > 1.0) {
+        // Extrapolate: distance to quad edge + SDF distance at boundary
+        // sdfDist at boundary represents how far the glyph surface is from the UV edge
+        vec2 closest = clamp(p, -halfSize, halfSize);
+        float quadDist = length(p - closest);
+        // Extrapolate: assume gradient continues linearly outside
+        return quadDist + max(sdfDist, 0.0);
+    }
+
+    return sdfDist;
+}
+
+// ============================================================================
+
+// Apply warp to coordinates based on warp type
+vec2 applyWarp(vec2 p, uint warpType, vec4 params) {
+    // Warp params are in params.yzw (x is reserved for shape params like corner radius)
+    float param1 = params.y;
+    float param2 = params.z;
+    float param3 = params.w;
+
+    if (warpType == WARP_WAVE) {
+        return applyWaveWarp(p, param1, param2, param3);
+    }
+    else if (warpType == WARP_TWIST) {
+        return applyTwistWarp(p, param1);
+    }
+    else if (warpType == WARP_BULGE) {
+        return applyBulgeWarp(p, param1, param2);
+    }
+    else if (warpType == WARP_REPEAT) {
+        return applyRepeatWarp(p, param1, param2, param3);
+    }
+    else if (warpType == WARP_LATTICE) {
+        return applyLatticeWarp(p, param1, param2, param3);
+    }
+
+    return p;  // WARP_NONE or unknown
+}
+
+// Apply a per-command warp chain (last pushed applies first: A(B(p)) for Push(A) then Push(B)).
+vec2 applyWarpChain(vec2 p, uint warpHead) {
+    uint nodeIdx = warpHead;
+
+    for (int depth = 0; depth < MAX_WARP_DEPTH && nodeIdx != 0u; depth++) {
+        WarpNode node = warpNodes.nodes[nodeIdx];
+        p = applyWarp(p, node.type, node.params);
+        nodeIdx = node.prev;
+    }
+
+    return p;
+}
+
+// ============================================================================
+
+void applyModifierChain(uint cmdIdx, inout vec2 pixelPos, inout float featherSigmaSqr, inout uint featherDirection) {
+    uint nodeIdx = getCommandModifierHead(cmdIdx);
+
+    for (int depth = 0; depth < MAX_MODIFIER_DEPTH && nodeIdx != 0u; depth++) {
+        ModifierNode node = modifierNodes.nodes[nodeIdx];
+
+        if (node.type == MOD_OFFSET) {
+            pixelPos -= node.params.xy;
+        }
+        else if (node.type == MOD_FEATHER) {
+            float radiusPx = max(node.params.x, 0.0);
+            float dirF = clamp(node.params.y, 0.0, 2.0);
+            featherDirection = uint(dirF + 0.5);
+            float sigma = radiusPx / 3.0;
+            featherSigmaSqr += sigma * sigma;
+        }
+
+        nodeIdx = node.prev;
+    }
+}
+
+// Compute local coordinates for fill/gradient evaluation.
+// Matches the rigid rotation + warp coordinate transform used by evaluateSdf() for most shapes.
+vec2 computeFillLocalPos(uint cmdIdx, vec2 pixelPos) {
+    float featherSigmaSqr = 0.0;
+    uint featherDirection = FEATHER_DIR_BOTH;
+    applyModifierChain(cmdIdx, pixelPos, featherSigmaSqr, featherDirection);
+
+    vec2 center = getCommandPosition(cmdIdx);
+    vec2 p = pixelPos - center;
+
+    float rotation = getCommandRotation(cmdIdx).x;
+    if (rotation != 0.0) {
+        float s = sin(rotation);
+        float c = cos(rotation);
+        p = vec2(c * p.x + s * p.y, -s * p.x + c * p.y);
+    }
+
+    uint warpHead = getCommandWarpHead(cmdIdx);
+    if (warpHead != 0u) {
+        p = applyWarpChain(p, warpHead);
+    }
+
+    return p;
+}
+
+const uint EVAL_HAS_S = 1u << 0u;
+const uint EVAL_PERIODIC = 1u << 1u;
+const uint EVAL_HAS_S_ALT = 1u << 2u;
+
+SdfEval makeEval(float d) {
+    SdfEval e;
+    e.d = d;
+    e.s = 0.0;
+    e.sAlt = 0.0;
+    e.totalLen = 0.0;
+    e.featherSigmaSqr = 0.0;
+    e.featherDirection = FEATHER_DIR_BOTH;
+    e.flags = 0u;
+    return e;
+}
+
+SdfEval makeEvalWithS(float d, float s, float totalLen, bool periodic) {
+    SdfEval e;
+    e.d = d;
+    e.s = s;
+    e.sAlt = 0.0;
+    e.totalLen = totalLen;
+    e.featherSigmaSqr = 0.0;
+    e.featherDirection = FEATHER_DIR_BOTH;
+    e.flags = EVAL_HAS_S | (periodic ? EVAL_PERIODIC : 0u);
+    return e;
+}
+
+SdfEval makeEvalWithSAlt(float d, float s, float sAlt, float totalLen, bool periodic) {
+    SdfEval e;
+    e.d = d;
+    e.s = s;
+    e.sAlt = sAlt;
+    e.totalLen = totalLen;
+    e.featherSigmaSqr = 0.0;
+    e.featherDirection = FEATHER_DIR_BOTH;
+    e.flags = EVAL_HAS_S | EVAL_HAS_S_ALT | (periodic ? EVAL_PERIODIC : 0u);
+    return e;
+}
+
+SdfEval withFeatherParams(SdfEval e, float featherSigmaSqr, uint featherDirection) {
+    e.featherSigmaSqr = featherSigmaSqr;
+    e.featherDirection = featherDirection;
+    return e;
+}
+
+float angle01(vec2 p) {
+    return (atan(p.y, p.x) + PI) / TAU;
+}
+
+SdfEval evaluateSdfEval(uint cmdIdx, vec2 pixelPos) {
+    uint shapeType = getCommandType(cmdIdx);
+    vec2 center = getCommandPosition(cmdIdx);
+    vec2 size = getCommandSize(cmdIdx);
+    vec4 params = getCommandParams(cmdIdx);
+    vec4 effects = getCommandEffects(cmdIdx);
+
+    float featherSigmaSqr = 0.0;
+    uint featherDirection = FEATHER_DIR_BOTH;
+    applyModifierChain(cmdIdx, pixelPos, featherSigmaSqr, featherDirection);
+
+    uint warpHead = getCommandWarpHead(cmdIdx);
+
+    vec2 p = pixelPos - center;
+
+    float rotation = getCommandRotation(cmdIdx).x;
+    if (rotation != 0.0) {
+        float s = sin(rotation);
+        float c = cos(rotation);
+        p = vec2(c * p.x + s * p.y, -s * p.x + c * p.y);
+    }
+
+    if (warpHead != 0u) {
+        p = applyWarpChain(p, warpHead);
+    }
+
+    if (shapeType == SHAPE_TEXT_GROUP) {
+        // Params.x = first glyph index, Params.y = glyph count
+        uint firstGlyph = uint(params.x);
+        uint glyphCount = uint(params.y);
+
+        vec2 warpedPixelPos = p + center;
+        float d = 1e10;
+        for (uint gi = 0u; gi < glyphCount; gi++) {
+            uint glyphIdx = firstGlyph + gi;
+            float glyphD = evaluateGlyphSdf(glyphIdx, warpedPixelPos);
+            d = min(d, glyphD);
+        }
+
+        return withFeatherParams(makeEval(d), featherSigmaSqr, featherDirection);
+    }
+
+    if (shapeType == SHAPE_GLYPH) {
+        vec2 glyphPixelPos = p + center;
+        float d = evaluateGlyphSdf(cmdIdx, glyphPixelPos);
+        return withFeatherParams(makeEval(d), featherSigmaSqr, featherDirection);
+    }
+
+    if (shapeType == SHAPE_IMAGE) {
+        float d = sdBox(p, size);
+        return withFeatherParams(makeEval(d), featherSigmaSqr, featherDirection);
+    }
+
+    if (shapeType == SHAPE_CIRCLE) {
+        float r = size.x;
+        float d = sdCircle(p, r);
+        float totalLen = TAU * max(r, 0.0);
+        float sPos = angle01(p) * totalLen;
+        return withFeatherParams(makeEvalWithS(d, sPos, totalLen, true), featherSigmaSqr, featherDirection);
+    }
+    else if (shapeType == SHAPE_RECT) {
+        float d = sdBox(p, size);
+
+        float hx = size.x;
+        float hy = size.y;
+        float w = hx * 2.0;
+        float h = hy * 2.0;
+        float totalLen = 2.0 * (w + h);
+
+        float bx = clamp(p.x, -hx, hx);
+        float by = clamp(p.y, -hy, hy);
+
+        float sHoriz = (p.y < 0.0) ? (bx + hx) : (w + h + (hx - bx));
+        float sVert = (p.x > 0.0) ? (w + (by + hy)) : (w + h + w + (hy - by));
+
+        float dx = abs(p.x) - hx;
+        float dy = abs(p.y) - hy;
+        bool vertical = dx > dy;
+
+        float sPos = vertical ? sVert : sHoriz;
+
+        float altBand = max(effects.x * 0.5 + 8.0, 12.0);
+        if (abs(p.x) > hx - altBand && abs(p.y) > hy - altBand) {
+            // Snap ambiguous corner neighborhood to the corner's s to avoid a diagonal seam.
+            // This keeps trim/dash caps shaped correctly at corners (no elbow/branching).
+            if (p.x >= 0.0) {
+                sPos = (p.y < 0.0) ? w : (w + h);
+            } else {
+                sPos = (p.y < 0.0) ? 0.0 : (w + h + w);
+            }
+        }
+
+        return withFeatherParams(makeEvalWithS(d, sPos, totalLen, true), featherSigmaSqr, featherDirection);
+    }
+    else if (shapeType == SHAPE_ROUNDED_RECT) {
+        float cornerRadius = params.x;
+        float d = sdRoundedBox(p, size, cornerRadius);
+
+        float hx = size.x;
+        float hy = size.y;
+        float r = clamp(cornerRadius, 0.0, min(hx, hy));
+
+        if (r <= 0.0) {
+            float w = hx * 2.0;
+            float h = hy * 2.0;
+            float totalLen = 2.0 * (w + h);
+
+            float bx = clamp(p.x, -hx, hx);
+            float by = clamp(p.y, -hy, hy);
+
+            float sHoriz = (p.y < 0.0) ? (bx + hx) : (w + h + (hx - bx));
+            float sVert = (p.x > 0.0) ? (w + (by + hy)) : (w + h + w + (hy - by));
+
+            float dx = abs(p.x) - hx;
+            float dy = abs(p.y) - hy;
+            bool vertical = dx > dy;
+
+            float sPos = vertical ? sVert : sHoriz;
+            float altBand = max(effects.x * 0.5 + 8.0, 12.0);
+            if (abs(p.x) > hx - altBand && abs(p.y) > hy - altBand) {
+                if (p.x >= 0.0) {
+                    sPos = (p.y < 0.0) ? w : (w + h);
+                } else {
+                    sPos = (p.y < 0.0) ? 0.0 : (w + h + w);
+                }
+            }
+            return withFeatherParams(makeEvalWithS(d, sPos, totalLen, true), featherSigmaSqr, featherDirection);
+        }
+
+        float topLen = max(hx * 2.0 - 2.0 * r, 0.0);
+        float rightLen = max(hy * 2.0 - 2.0 * r, 0.0);
+        float arcLen = 0.5 * PI * r;
+        float totalLen = 2.0 * (topLen + rightLen) + 4.0 * arcLen;
+
+        float ax = abs(p.x);
+        float ay = abs(p.y);
+        bool inCorner = (ax > hx - r) && (ay > hy - r);
+
+        float sPos = 0.0;
+        if (!inCorner) {
+            float bx = clamp(p.x, -hx + r, hx - r);
+            float by = clamp(p.y, -hy + r, hy - r);
+
+            float sHoriz = (p.y < 0.0)
+                ? (bx - (-hx + r))
+                : (topLen + arcLen + rightLen + arcLen + (hx - r - bx));
+
+            float sVert = (p.x > 0.0)
+                ? (topLen + arcLen + (by - (-hy + r)))
+                : (topLen + arcLen + rightLen + arcLen + topLen + arcLen + (hy - r - by));
+
+            float dxInner = abs(p.x) - (hx - r);
+            float dyInner = abs(p.y) - (hy - r);
+            bool vertical = dxInner > dyInner;
+
+            sPos = vertical ? sVert : sHoriz;
+        } else {
+            float a = atan(p.y - sign(p.y) * (hy - r), p.x - sign(p.x) * (hx - r));
+            float aw = a;
+            if (aw < 0.0) aw += TAU;
+
+            if (p.x > 0.0 && p.y < 0.0) {
+                float t = clamp((a + 0.5 * PI) / (0.5 * PI), 0.0, 1.0);
+                sPos = topLen + t * arcLen;
+            }
+            else if (p.x > 0.0 && p.y > 0.0) {
+                float t = clamp(a / (0.5 * PI), 0.0, 1.0);
+                sPos = topLen + arcLen + rightLen + t * arcLen;
+            }
+            else if (p.x < 0.0 && p.y > 0.0) {
+                float t = clamp((aw - 0.5 * PI) / (0.5 * PI), 0.0, 1.0);
+                sPos = topLen + arcLen + rightLen + arcLen + topLen + t * arcLen;
+            }
+            else {
+                float t = clamp((aw - PI) / (0.5 * PI), 0.0, 1.0);
+                sPos = topLen + arcLen + rightLen + arcLen + topLen + arcLen + rightLen + t * arcLen;
+            }
+        }
+
+        return withFeatherParams(makeEvalWithS(d, sPos, totalLen, true), featherSigmaSqr, featherDirection);
+    }
+    else if (shapeType == SHAPE_ROUNDED_RECT_PER_CORNER) {
+        float d = sdRoundedBoxPerCorner(p, size, params);
+
+        float hx = size.x;
+        float hy = size.y;
+        float w = hx * 2.0;
+        float h = hy * 2.0;
+        float totalLen = 2.0 * (w + h);
+
+        float bx = clamp(p.x, -hx, hx);
+        float by = clamp(p.y, -hy, hy);
+
+        float sHoriz = (p.y < 0.0) ? (bx + hx) : (w + h + (hx - bx));
+        float sVert = (p.x > 0.0) ? (w + (by + hy)) : (w + h + w + (hy - by));
+
+        float dx = abs(p.x) - hx;
+        float dy = abs(p.y) - hy;
+        bool vertical = dx > dy;
+
+        float sPos = vertical ? sVert : sHoriz;
+        float altBand = max(effects.x * 0.5 + 8.0, 12.0);
+        if (abs(p.x) > hx - altBand && abs(p.y) > hy - altBand) {
+            if (p.x >= 0.0) {
+                sPos = (p.y < 0.0) ? w : (w + h);
+            } else {
+                sPos = (p.y < 0.0) ? 0.0 : (w + h + w);
+            }
+        }
+        return withFeatherParams(makeEvalWithS(d, sPos, totalLen, true), featherSigmaSqr, featherDirection);
+    }
+    else if (shapeType == SHAPE_LINE) {
+        vec2 a = center;
+        vec2 b = size;
+        float radius = params.x * 0.5;
+
+        vec2 queryPoint = pixelPos;
+        if (warpHead != 0u) {
+            vec2 midpoint = (a + b) * 0.5;
+            queryPoint = midpoint + applyWarpChain(pixelPos - midpoint, warpHead);
+        }
+
+        float d = sdCapsule(queryPoint, a, b, radius);
+
+        vec2 ba = b - a;
+        float len2 = dot(ba, ba);
+        float t = 0.0;
+        float segLen = sqrt(max(len2, 1e-8));
+        if (len2 > 1e-8) {
+            t = clamp(dot(queryPoint - a, ba) / len2, 0.0, 1.0);
+        }
+
+        float sPos = t * segLen;
+        return withFeatherParams(makeEvalWithS(d, sPos, segLen, false), featherSigmaSqr, featherDirection);
+    }
+    else if (shapeType == SHAPE_BEZIER) {
+        vec2 p0 = center;
+        vec2 p2 = size;
+        vec2 p1 = vec2(params.y, params.z);
+        vec2 queryPoint = pixelPos;
+        if (warpHead != 0u) {
+            vec2 curveCenter = (p0 + p1 + p2) / 3.0;
+            queryPoint = curveCenter + applyWarpChain(pixelPos - curveCenter, warpHead);
+        }
+        float d = sdBezier(queryPoint, p0, p1, p2, params.x * 0.5);
+        return withFeatherParams(makeEval(d), featherSigmaSqr, featherDirection);
+    }
+    else if (shapeType == SHAPE_POLYLINE) {
+        float thickness = params.x;
+        uint headerIdx = uint(params.y);
+
+        uint hdrOffset = headerIdx * 6u;
+        vec2 boundsMin = vec2(headers.data[hdrOffset], headers.data[hdrOffset + 1u]);
+        vec2 boundsMax = vec2(headers.data[hdrOffset + 2u], headers.data[hdrOffset + 3u]);
+        uint startIdx = floatBitsToUint(headers.data[hdrOffset + 4u]);
+        uint pointCount = floatBitsToUint(headers.data[hdrOffset + 5u]);
+
+        float radius = thickness * 0.5;
+        float strokeWidth = max(effects.x, 0.0);
+        float glowExtent = max(effects.y, 0.0) * 2.0;
+        float softEdge = max(effects.z, 0.5);
+        float featherRadius = 3.0 * sqrt(max(featherSigmaSqr, 0.0));
+        float margin = radius + strokeWidth + glowExtent + softEdge + featherRadius + 2.0;
+        if (pixelPos.x < boundsMin.x - margin || pixelPos.x > boundsMax.x + margin ||
+            pixelPos.y < boundsMin.y - margin || pixelPos.y > boundsMax.y + margin ||
+            pointCount < 2u) {
+            return withFeatherParams(makeEval(1e10), featherSigmaSqr, featherDirection);
+        }
+
+        float bestD = 1e10;
+        uint bestSeg = 0u;
+        float bestT = 0.0;
+
+        float secondD = 1e10;
+        uint secondSeg = 0u;
+        float secondT = 0.0;
+
+        for (uint si = 0u; si < pointCount - 1u; si++) {
+            vec2 a = getPoint(startIdx + si);
+            vec2 b = getPoint(startIdx + si + 1u);
+            vec2 ba = b - a;
+            float len2 = dot(ba, ba);
+
+            float t = 0.0;
+            vec2 closest = a;
+            if (len2 > 1e-8) {
+                t = clamp(dot(pixelPos - a, ba) / len2, 0.0, 1.0);
+                closest = a + ba * t;
+            }
+
+            float segD = length(pixelPos - closest) - radius;
+            if (segD < bestD) {
+                secondD = bestD;
+                secondSeg = bestSeg;
+                secondT = bestT;
+
+                bestD = segD;
+                bestSeg = si;
+                bestT = t;
+            } else if (segD < secondD) {
+                secondD = segD;
+                secondSeg = si;
+                secondT = t;
+            }
+        }
+
+        float totalLen = getPointLength(startIdx + pointCount - 1u);
+        float lenA = getPointLength(startIdx + bestSeg);
+        float lenB = getPointLength(startIdx + bestSeg + 1u);
+        float sPos = mix(lenA, lenB, bestT);
+
+        float altThreshold = max(radius, 1.0);
+        if (secondD < bestD + altThreshold && secondSeg != bestSeg) {
+            bool sharesStartVertex = (bestSeg > 0u && secondSeg + 1u == bestSeg && bestT < 0.35);
+            bool sharesEndVertex = (bestSeg + 1u < pointCount - 1u && secondSeg == bestSeg + 1u && bestT > 0.65);
+
+            if (sharesStartVertex || sharesEndVertex) {
+                uint vertexIndex = sharesStartVertex ? bestSeg : (bestSeg + 1u);
+                sPos = getPointLength(startIdx + vertexIndex);
+            }
+        }
+
+        return withFeatherParams(makeEvalWithS(bestD, sPos, totalLen, false), featherSigmaSqr, featherDirection);
+    }
+    else if (shapeType == SHAPE_FILLED_POLYGON) {
+        uint headerIdx = uint(params.y);
+
+        uint hdrOffset = headerIdx * 6u;
+        vec2 boundsMin = vec2(headers.data[hdrOffset], headers.data[hdrOffset + 1u]);
+        vec2 boundsMax = vec2(headers.data[hdrOffset + 2u], headers.data[hdrOffset + 3u]);
+        uint startIdx = floatBitsToUint(headers.data[hdrOffset + 4u]);
+        uint pointCount = floatBitsToUint(headers.data[hdrOffset + 5u]);
+
+        if (pointCount < 2u) {
+            return withFeatherParams(makeEval(1e10), featherSigmaSqr, featherDirection);
+        }
+
+        float strokeWidth = max(effects.x, 0.0);
+        float glowExtent = max(effects.y, 0.0) * 2.0;
+        float softEdge = max(effects.z, 0.5);
+        float featherRadius = 3.0 * sqrt(max(featherSigmaSqr, 0.0));
+        float margin = strokeWidth + glowExtent + softEdge + featherRadius + 2.0;
+        if (pixelPos.x < boundsMin.x - margin || pixelPos.x > boundsMax.x + margin ||
+            pixelPos.y < boundsMin.y - margin || pixelPos.y > boundsMax.y + margin) {
+            return withFeatherParams(makeEval(1e10), featherSigmaSqr, featherDirection);
+        }
+
+        vec2 first = getPoint(startIdx);
+        vec2 prev = first;
+        float minDistSq = 1e20;
+        bool inside = false;
+        uint bestEdge = 0u;
+        float bestT = 0.0;
+
+        for (uint edgeIndex = 0u; edgeIndex < pointCount; edgeIndex++) {
+            uint currPointOffset = edgeIndex + 1u;
+            vec2 curr = currPointOffset < pointCount
+                ? getPoint(startIdx + currPointOffset)
+                : first;
+
+            vec2 e = curr - prev;
+            vec2 w = pixelPos - prev;
+            float denom = dot(e, e);
+
+            float t = 0.0;
+            vec2 closest = prev;
+            if (denom > 1e-8) {
+                t = clamp(dot(w, e) / denom, 0.0, 1.0);
+                closest = prev + e * t;
+            }
+
+            vec2 d2 = pixelPos - closest;
+            float distSq = dot(d2, d2);
+            if (distSq < minDistSq) {
+                minDistSq = distSq;
+                bestEdge = edgeIndex;
+                bestT = t;
+            }
+
+            bool condY = (curr.y > pixelPos.y) != (prev.y > pixelPos.y);
+            if (condY) {
+                float denomY = (prev.y - curr.y);
+                if (abs(denomY) > 1e-8) {
+                    float xIntersect = (prev.x - curr.x) * (pixelPos.y - curr.y) / denomY + curr.x;
+                    if (pixelPos.x < xIntersect) {
+                        inside = !inside;
+                    }
+                }
+            }
+
+            prev = curr;
+        }
+
+        float dist = sqrt(minDistSq);
+        float d = inside ? -dist : dist;
+
+        vec2 last = getPoint(startIdx + pointCount - 1u);
+        float openTotalLen = getPointLength(startIdx + pointCount - 1u);
+        float closingEdgeLen = length(first - last);
+        float closedTotalLen = openTotalLen + closingEdgeLen;
+
+        float lenA = 0.0;
+        float lenB = 0.0;
+        if (bestEdge + 1u < pointCount) {
+            lenA = getPointLength(startIdx + bestEdge);
+            lenB = getPointLength(startIdx + bestEdge + 1u);
+        } else {
+            lenA = openTotalLen;
+            lenB = closedTotalLen;
+        }
+
+        float sPos = mix(lenA, lenB, bestT);
+
+        return withFeatherParams(makeEvalWithS(d, sPos, closedTotalLen, true), featherSigmaSqr, featherDirection);
+    }
+
+    return withFeatherParams(makeEval(1000.0), featherSigmaSqr, featherDirection);
+}
+
+float evaluateSdf(uint cmdIdx, vec2 pixelPos) {
+    return evaluateSdfEval(cmdIdx, pixelPos).d;
+}
+
+uint getBlendModeFromFlags(uint cmdFlags) {
+    return (cmdFlags >> BLEND_MODE_SHIFT) & BLEND_MODE_MASK;
+}
+
+float hue2rgb(float p, float q, float t) {
+    if (t < 0.0) t += 1.0;
+    if (t > 1.0) t -= 1.0;
+    if (t < 1.0/6.0) return p + (q - p) * 6.0 * t;
+    if (t < 1.0/2.0) return q;
+    if (t < 2.0/3.0) return p + (q - p) * (2.0/3.0 - t) * 6.0;
+    return p;
+}
+
+vec3 rgbToHsl(vec3 c) {
+    float maxC = max(max(c.r, c.g), c.b);
+    float minC = min(min(c.r, c.g), c.b);
+    float h = 0.0;
+    float s = 0.0;
+    float l = (maxC + minC) * 0.5;
+    if (maxC != minC) {
+        float d = maxC - minC;
+        s = l > 0.5 ? d / (2.0 - maxC - minC) : d / (maxC + minC);
+        if (maxC == c.r) {
+            h = (c.g - c.b) / d + (c.g < c.b ? 6.0 : 0.0);
+        } else if (maxC == c.g) {
+            h = (c.b - c.r) / d + 2.0;
+        } else {
+            h = (c.r - c.g) / d + 4.0;
+        }
+        h /= 6.0;
+    }
+    return vec3(h, s, l);
+}
+
+vec3 hslToRgb(vec3 hsl) {
+    float h = hsl.x;
+    float s = hsl.y;
+    float l = hsl.z;
+    if (s <= 0.000001) {
+        return vec3(l);
+    }
+
+    float q = l < 0.5 ? l * (1.0 + s) : l + s - l * s;
+    float p = 2.0 * l - q;
+    float r = hue2rgb(p, q, h + 1.0/3.0);
+    float g = hue2rgb(p, q, h);
+    float b = hue2rgb(p, q, h - 1.0/3.0);
+    return vec3(r, g, b);
+}
+
+vec3 softLight(vec3 dst, vec3 src) {
+    vec3 result = vec3(0.0);
+    for (int i = 0; i < 3; i++) {
+        float d = dst[i];
+        float s = src[i];
+        if (s <= 0.5) {
+            result[i] = d - (1.0 - 2.0 * s) * d * (1.0 - d);
+        } else {
+            float g = d <= 0.25 ? ((16.0 * d - 12.0) * d + 4.0) * d : sqrt(d);
+            result[i] = d + (2.0 * s - 1.0) * (g - d);
+        }
+    }
+    return clamp(result, 0.0, 1.0);
+}
+
+vec3 applyBlendMode(vec3 dst, vec3 src, uint mode) {
+    // mode values match PaintBlendMode (Derp.UI)
+    if (mode == 0u) return src;                          // Normal
+    if (mode == 1u) return min(dst, src);                // Darken
+    if (mode == 2u) return dst * src;                    // Multiply
+    if (mode == 3u) return 1.0 - min(vec3(1.0), (1.0 - dst) / max(src, vec3(0.00001))); // Color Burn
+    if (mode == 4u) return max(dst, src);                // Lighten
+    if (mode == 5u) return 1.0 - (1.0 - dst) * (1.0 - src); // Screen
+    if (mode == 6u) return min(vec3(1.0), dst / max(vec3(0.00001), (1.0 - src))); // Color Dodge
+    if (mode == 7u) {                                    // Overlay
+        vec3 lo = 2.0 * dst * src;
+        vec3 hi = 1.0 - 2.0 * (1.0 - dst) * (1.0 - src);
+        return mix(lo, hi, step(0.5, dst));
+    }
+    if (mode == 8u) return softLight(dst, src);          // Soft Light
+    if (mode == 9u) {                                    // Hard Light
+        vec3 lo = 2.0 * dst * src;
+        vec3 hi = 1.0 - 2.0 * (1.0 - dst) * (1.0 - src);
+        return mix(lo, hi, step(0.5, src));
+    }
+    if (mode == 10u) return abs(dst - src);              // Difference
+    if (mode == 11u) return dst + src - 2.0 * dst * src; // Exclusion
+    if (mode == 12u || mode == 13u || mode == 14u || mode == 15u) { // HSL family
+        vec3 dstHsl = rgbToHsl(dst);
+        vec3 srcHsl = rgbToHsl(src);
+        vec3 outHsl = dstHsl;
+        if (mode == 12u) { // Hue
+            outHsl.x = srcHsl.x;
+        } else if (mode == 13u) { // Saturation
+            outHsl.y = srcHsl.y;
+        } else if (mode == 14u) { // Color
+            outHsl.x = srcHsl.x;
+            outHsl.y = srcHsl.y;
+        } else { // Luminosity
+            outHsl.z = srcHsl.z;
+        }
+        return hslToRgb(outHsl);
+    }
+    return src;
+}
+
+// Blend a color onto the final color using alpha over operator with per-command blend mode.
+void blendOver(inout vec4 dst, vec4 src, uint blendMode) {
+    if (src.a <= 0.0) return;
+    float invDstA = dst.a > 0.00001 ? (1.0 / dst.a) : 0.0;
+    vec3 dstStraight = dst.rgb * invDstA;
+    vec3 blendedStraight = applyBlendMode(dstStraight, src.rgb, blendMode);
+    vec3 srcPremul = blendedStraight * src.a;
+
+    dst.rgb = srcPremul + dst.rgb * (1.0 - src.a);
+    dst.a = dst.a + src.a * (1.0 - dst.a);
+}
+
+float modPositive(float x, float m) {
+    if (m <= 0.0) return 0.0;
+    return x - floor(x / m) * m;
+}
+
+float signedDistToIntervalOpen(float s, float start, float length) {
+    float x = s - start;
+    return max(-x, x - length);
+}
+
+float signedDistToIntervalPeriodic(float s, float start, float length, float totalLen) {
+    if (totalLen <= 0.0) return 1e10;
+    if (length >= totalLen) return -1e10;
+
+    float sw = modPositive(s, totalLen);
+    float st = modPositive(start, totalLen);
+    float en = modPositive(start + length, totalLen);
+
+    if (st <= en) {
+        float x = sw - st;
+        return max(-x, x - length);
+    }
+
+    // Wrapped interval: [st, totalLen] U [0, en]
+    if (sw >= st || sw <= en) {
+        float dSt = min(abs(sw - st), totalLen - abs(sw - st));
+        float dEn = min(abs(sw - en), totalLen - abs(sw - en));
+        return -min(dSt, dEn);
+    }
+
+    // Gap: (en, st)
+    return min(sw - en, st - sw);
+}
+
+float strokeWindowDist(float baseDist, float signed1d, float halfW, uint capMode) {
+    // baseDist  : signed distance to the base stroke band (negative inside),
+    //            i.e. `abs(d) - halfW` where `d` is the base shape SDF.
+    // signed1d  : signed distance to the allowed window along the contour (negative inside).
+    // capMode   : CAP_BUTT or CAP_ROUND (CAP_SQUARE is handled by interval expansion).
+    //
+    // Round caps are a capsule in (s, across) space with radius = halfW.
+    if (capMode == CAP_ROUND) {
+        float acrossAbs = baseDist + halfW; // abs(distance-to-centerline) in px
+        float alongOutside = max(signed1d, 0.0);
+        return length(vec2(alongOutside, acrossAbs)) - halfW;
+    }
+    return max(baseDist, signed1d);
+}
+
+float strokeSoftAlpha(float signed1d, float softnessPx) {
+    float s = max(softnessPx, 0.5);
+    return clamp(0.5 - signed1d / s, 0.0, 1.0);
+}
+
+uint getTrimCap(uint flags) {
+    return (flags >> TRIM_CAP_SHIFT) & CAP_MASK;
+}
+
+uint getDashCap(uint flags) {
+    return (flags >> DASH_CAP_SHIFT) & CAP_MASK;
+}
+
+struct TrimDashMask {
+    float d;         // combined signed distance (negative = inside)
+    float alphaMul;  // soft-cap alpha multiplier (1.0 when not used)
+};
+
+TrimDashMask applyTrimDashMaskForS(uint cmdFlags, vec4 trimParams, vec4 dashParams, float s, float totalLen, bool periodic, float baseDist, float halfW);
+
+TrimDashMask applyTrimDashMask(uint cmdFlags, vec4 trimParams, vec4 dashParams, SdfEval eval, float baseDist, float halfW) {
+    uint enabled = cmdFlags & (FLAG_TRIM_ENABLED | FLAG_DASH_ENABLED);
+    if (enabled == 0u) {
+        TrimDashMask m;
+        m.d = baseDist;
+        m.alphaMul = 1.0;
+        return m;
+    }
+
+    if ((eval.flags & EVAL_HAS_S) == 0u) {
+        TrimDashMask m;
+        m.d = baseDist;
+        m.alphaMul = 1.0;
+        return m;
+    }
+
+    float totalLen = eval.totalLen;
+    if (totalLen <= 0.0) {
+        TrimDashMask m;
+        m.d = baseDist;
+        m.alphaMul = 1.0;
+        return m;
+    }
+
+    bool periodic = (eval.flags & EVAL_PERIODIC) != 0u;
+
+    TrimDashMask m0 = applyTrimDashMaskForS(cmdFlags, trimParams, dashParams, eval.s, totalLen, periodic, baseDist, halfW);
+    if ((eval.flags & EVAL_HAS_S_ALT) != 0u) {
+        TrimDashMask m1 = applyTrimDashMaskForS(cmdFlags, trimParams, dashParams, eval.sAlt, totalLen, periodic, baseDist, halfW);
+        TrimDashMask m;
+        m.d = min(m0.d, m1.d);
+        m.alphaMul = max(m0.alphaMul, m1.alphaMul);
+        return m;
+    }
+    return m0;
+}
+
+TrimDashMask applyTrimDashMaskForS(uint cmdFlags, vec4 trimParams, vec4 dashParams, float s, float totalLen, bool periodic, float baseDist, float halfW) {
+    TrimDashMask m;
+    m.d = baseDist;
+    m.alphaMul = 1.0;
+
+    // === TRIM (single window) ===
+    if ((cmdFlags & FLAG_TRIM_ENABLED) != 0u && trimParams.y > 0.0) {
+        float start = trimParams.x + trimParams.z;
+        float length = trimParams.y;
+        uint cap = getTrimCap(cmdFlags);
+
+        if (cap == CAP_SQUARE) {
+            start -= halfW;
+            length += 2.0 * halfW;
+        }
+
+        float signedTrim = periodic
+            ? signedDistToIntervalPeriodic(s, start, length, totalLen)
+            : signedDistToIntervalOpen(s, start, length);
+
+        if (cap == CAP_SOFT) {
+            m.alphaMul *= strokeSoftAlpha(signedTrim, trimParams.w);
+        } else {
+            uint capGeom = (cap == CAP_ROUND) ? CAP_ROUND : CAP_BUTT;
+            float dTrim = strokeWindowDist(baseDist, signedTrim, halfW, capGeom);
+            m.d = max(m.d, dTrim);
+        }
+    }
+
+    // === DASH (repeating window) ===
+    if ((cmdFlags & FLAG_DASH_ENABLED) != 0u && dashParams.x > 0.0) {
+        float dashLen = dashParams.x;
+        float gapLen = max(dashParams.y, 0.0);
+        float period = dashLen + gapLen;
+        if (period > 0.0) {
+            float start = dashParams.z;
+            float length = dashLen;
+            uint cap = getDashCap(cmdFlags);
+
+            if (cap == CAP_SQUARE) {
+                start -= halfW;
+                length += 2.0 * halfW;
+            }
+
+            float signedDash = signedDistToIntervalPeriodic(s, start, length, period);
+
+            if (cap == CAP_SOFT) {
+                m.alphaMul *= strokeSoftAlpha(signedDash, dashParams.w);
+            } else {
+                uint capGeom = (cap == CAP_ROUND) ? CAP_ROUND : CAP_BUTT;
+                float dDash = strokeWindowDist(baseDist, signedDash, halfW, capGeom);
+                m.d = max(m.d, dDash);
+            }
+        }
+    }
+
+    return m;
+}
+
+void segmentDistanceAndT(vec2 p, vec2 a, vec2 b, out float dist, out float t) {
+    vec2 pa = p - a;
+    vec2 ba = b - a;
+    float len2 = dot(ba, ba);
+    t = 0.0;
+    if (len2 > 1e-8) {
+        t = clamp(dot(pa, ba) / len2, 0.0, 1.0);
+    }
+    vec2 closest = a + ba * t;
+    dist = length(p - closest);
+}
+
+TrimDashMask applyTrimDashMaskRect(uint cmdFlags, vec4 trimParams, vec4 dashParams, vec2 p, vec2 halfSize, float halfW) {
+    float w = halfSize.x * 2.0;
+    float h = halfSize.y * 2.0;
+    float totalLen = 2.0 * (w + h);
+
+    TrimDashMask best;
+    best.d = 1e10;
+    best.alphaMul = 1.0;
+
+    vec2 tl = vec2(-halfSize.x, -halfSize.y);
+    vec2 tr = vec2(halfSize.x, -halfSize.y);
+    vec2 br = vec2(halfSize.x, halfSize.y);
+    vec2 bl = vec2(-halfSize.x, halfSize.y);
+
+    float dist;
+    float t;
+
+    // Top: [tl -> tr], s in [0, w]
+    segmentDistanceAndT(p, tl, tr, dist, t);
+    {
+        float s = t * w;
+        float baseDist = dist - halfW;
+        TrimDashMask m = applyTrimDashMaskForS(cmdFlags, trimParams, dashParams, s, totalLen, true, baseDist, halfW);
+        if (m.d < best.d) {
+            best = m;
+        }
+    }
+
+    // Right: [tr -> br], s in [w, w + h]
+    segmentDistanceAndT(p, tr, br, dist, t);
+    {
+        float s = w + t * h;
+        float baseDist = dist - halfW;
+        TrimDashMask m = applyTrimDashMaskForS(cmdFlags, trimParams, dashParams, s, totalLen, true, baseDist, halfW);
+        if (m.d < best.d) {
+            best = m;
+        }
+    }
+
+    // Bottom: [br -> bl], s in [w + h, 2w + h]
+    segmentDistanceAndT(p, br, bl, dist, t);
+    {
+        float s = w + h + t * w;
+        float baseDist = dist - halfW;
+        TrimDashMask m = applyTrimDashMaskForS(cmdFlags, trimParams, dashParams, s, totalLen, true, baseDist, halfW);
+        if (m.d < best.d) {
+            best = m;
+        }
+    }
+
+    // Left: [bl -> tl], s in [2w + h, 2w + 2h]
+    segmentDistanceAndT(p, bl, tl, dist, t);
+    {
+        float s = w + h + w + t * h;
+        float baseDist = dist - halfW;
+        TrimDashMask m = applyTrimDashMaskForS(cmdFlags, trimParams, dashParams, s, totalLen, true, baseDist, halfW);
+        if (m.d < best.d) {
+            best = m;
+        }
+    }
+
+    return best;
+}
+
+float sdSegmentButtStroke(vec2 p, vec2 a, vec2 b, float halfW) {
+    vec2 d = b - a;
+    float len = length(d);
+    if (len <= 1e-5) {
+        return length(p - a) - halfW;
+    }
+
+    vec2 axisX = d / len;
+    vec2 axisY = vec2(-axisX.y, axisX.x);
+    vec2 center = (a + b) * 0.5;
+    vec2 q = p - center;
+    vec2 local = vec2(dot(q, axisX), dot(q, axisY));
+    return sdBox(local, vec2(len * 0.5, halfW));
+}
+
+float sdArcButtStroke(vec2 p, vec2 center, float radius, float angle0, float angle1, float halfW) {
+    if (radius <= 0.0) {
+        return 1e10;
+    }
+
+    float span = modPositive(angle1 - angle0, TAU);
+    if (span <= 1e-6) {
+        return 1e10;
+    }
+
+    vec2 v = p - center;
+    float ringD = abs(length(v) - radius) - halfW;
+
+    vec2 u0 = vec2(cos(angle0), sin(angle0));
+    vec2 u1 = vec2(cos(angle0 + span), sin(angle0 + span));
+    vec2 um = vec2(cos(angle0 + span * 0.5), sin(angle0 + span * 0.5));
+
+    vec2 n0 = vec2(-u0.y, u0.x);
+    vec2 n1 = vec2(-u1.y, u1.x);
+    float sign0 = sign(dot(n0, um));
+    float sign1 = sign(dot(n1, um));
+    float wedge0 = -dot(n0, v) * sign0;
+    float wedge1 = -dot(n1, v) * sign1;
+    float wedgeD = max(wedge0, wedge1);
+
+    return max(ringD, wedgeD);
+}
+
+void roundedRectPerCornerPointAndTangentAtS(float s, vec2 halfSize, vec4 radii, out vec2 pos, out vec2 tangent) {
+    float hx = halfSize.x;
+    float hy = halfSize.y;
+    float maxR = max(min(hx, hy), 0.0);
+    float rTL = clamp(radii.x, 0.0, maxR);
+    float rTR = clamp(radii.y, 0.0, maxR);
+    float rBR = clamp(radii.z, 0.0, maxR);
+    float rBL = clamp(radii.w, 0.0, maxR);
+
+    float w = hx * 2.0;
+    float h = hy * 2.0;
+
+    float topLen = max(w - rTL - rTR, 0.0);
+    float rightLen = max(h - rTR - rBR, 0.0);
+    float bottomLen = max(w - rBR - rBL, 0.0);
+    float leftLen = max(h - rBL - rTL, 0.0);
+
+    float arcTL = 0.5 * PI * rTL;
+    float arcTR = 0.5 * PI * rTR;
+    float arcBR = 0.5 * PI * rBR;
+    float arcBL = 0.5 * PI * rBL;
+
+    float totalLen = topLen + arcTR + rightLen + arcBR + bottomLen + arcBL + leftLen + arcTL;
+    float ss = (totalLen > 0.0) ? modPositive(s, totalLen) : 0.0;
+    float cursor = 0.0;
+
+    if (ss < cursor + topLen) {
+        float t = (topLen > 1e-6) ? (ss - cursor) / topLen : 0.0;
+        pos = vec2(-hx + rTL + t * topLen, -hy);
+        tangent = vec2(1.0, 0.0);
+        return;
+    }
+    cursor += topLen;
+
+    if (ss < cursor + arcTR && arcTR > 1e-6) {
+        float t = (ss - cursor) / arcTR;
+        float a = -0.5 * PI + t * 0.5 * PI;
+        vec2 c = vec2(hx - rTR, -hy + rTR);
+        pos = c + vec2(cos(a), sin(a)) * rTR;
+        tangent = normalize(vec2(-sin(a), cos(a)));
+        return;
+    }
+    cursor += arcTR;
+
+    if (ss < cursor + rightLen) {
+        float t = (rightLen > 1e-6) ? (ss - cursor) / rightLen : 0.0;
+        pos = vec2(hx, -hy + rTR + t * rightLen);
+        tangent = vec2(0.0, 1.0);
+        return;
+    }
+    cursor += rightLen;
+
+    if (ss < cursor + arcBR && arcBR > 1e-6) {
+        float t = (ss - cursor) / arcBR;
+        float a = 0.0 + t * 0.5 * PI;
+        vec2 c = vec2(hx - rBR, hy - rBR);
+        pos = c + vec2(cos(a), sin(a)) * rBR;
+        tangent = normalize(vec2(-sin(a), cos(a)));
+        return;
+    }
+    cursor += arcBR;
+
+    if (ss < cursor + bottomLen) {
+        float t = (bottomLen > 1e-6) ? (ss - cursor) / bottomLen : 0.0;
+        pos = vec2(hx - rBR - t * bottomLen, hy);
+        tangent = vec2(-1.0, 0.0);
+        return;
+    }
+    cursor += bottomLen;
+
+    if (ss < cursor + arcBL && arcBL > 1e-6) {
+        float t = (ss - cursor) / arcBL;
+        float a = 0.5 * PI + t * 0.5 * PI;
+        vec2 c = vec2(-hx + rBL, hy - rBL);
+        pos = c + vec2(cos(a), sin(a)) * rBL;
+        tangent = normalize(vec2(-sin(a), cos(a)));
+        return;
+    }
+    cursor += arcBL;
+
+    if (ss < cursor + leftLen) {
+        float t = (leftLen > 1e-6) ? (ss - cursor) / leftLen : 0.0;
+        pos = vec2(-hx, hy - rBL - t * leftLen);
+        tangent = vec2(0.0, -1.0);
+        return;
+    }
+    cursor += leftLen;
+
+    if (arcTL > 1e-6) {
+        float t = clamp((ss - cursor) / arcTL, 0.0, 1.0);
+        float a = PI + t * 0.5 * PI;
+        vec2 c = vec2(-hx + rTL, -hy + rTL);
+        pos = c + vec2(cos(a), sin(a)) * rTL;
+        tangent = normalize(vec2(-sin(a), cos(a)));
+        return;
+    }
+
+    pos = vec2(-hx, -hy);
+    tangent = vec2(1.0, 0.0);
+}
+
+float sdTrimmedStrokeRoundedRectInterval(vec2 p, vec2 halfSize, vec4 radii, float intervalStart, float intervalEnd, float halfW) {
+    float hx = halfSize.x;
+    float hy = halfSize.y;
+    float maxR = max(min(hx, hy), 0.0);
+    float rTL = clamp(radii.x, 0.0, maxR);
+    float rTR = clamp(radii.y, 0.0, maxR);
+    float rBR = clamp(radii.z, 0.0, maxR);
+    float rBL = clamp(radii.w, 0.0, maxR);
+
+    float w = hx * 2.0;
+    float h = hy * 2.0;
+
+    float topLen = max(w - rTL - rTR, 0.0);
+    float rightLen = max(h - rTR - rBR, 0.0);
+    float bottomLen = max(w - rBR - rBL, 0.0);
+    float leftLen = max(h - rBL - rTL, 0.0);
+
+    float arcTL = 0.5 * PI * rTL;
+    float arcTR = 0.5 * PI * rTR;
+    float arcBR = 0.5 * PI * rBR;
+    float arcBL = 0.5 * PI * rBL;
+
+    float d = 1e10;
+    float cursor = 0.0;
+
+    // Top segment
+    {
+        float segLen = topLen;
+        float s0 = cursor;
+        float s1 = cursor + segLen;
+        float o0 = max(intervalStart, s0);
+        float o1 = min(intervalEnd, s1);
+        if (o1 > o0 + 1e-6 && segLen > 1e-6) {
+            float t0 = (o0 - s0) / segLen;
+            float t1 = (o1 - s0) / segLen;
+            vec2 a = vec2(-hx + rTL, -hy);
+            vec2 b = vec2(hx - rTR, -hy);
+            vec2 p0 = mix(a, b, t0);
+            vec2 p1 = mix(a, b, t1);
+            d = min(d, sdSegmentButtStroke(p, p0, p1, halfW));
+        }
+        cursor = s1;
+    }
+
+    // Top-right arc
+    {
+        float segLen = arcTR;
+        float s0 = cursor;
+        float s1 = cursor + segLen;
+        float o0 = max(intervalStart, s0);
+        float o1 = min(intervalEnd, s1);
+        if (o1 > o0 + 1e-6 && segLen > 1e-6) {
+            float t0 = (o0 - s0) / segLen;
+            float t1 = (o1 - s0) / segLen;
+            float a0 = -0.5 * PI + t0 * 0.5 * PI;
+            float a1 = -0.5 * PI + t1 * 0.5 * PI;
+            vec2 c = vec2(hx - rTR, -hy + rTR);
+            d = min(d, sdArcButtStroke(p, c, rTR, a0, a1, halfW));
+        }
+        cursor = s1;
+    }
+
+    // Right segment
+    {
+        float segLen = rightLen;
+        float s0 = cursor;
+        float s1 = cursor + segLen;
+        float o0 = max(intervalStart, s0);
+        float o1 = min(intervalEnd, s1);
+        if (o1 > o0 + 1e-6 && segLen > 1e-6) {
+            float t0 = (o0 - s0) / segLen;
+            float t1 = (o1 - s0) / segLen;
+            vec2 a = vec2(hx, -hy + rTR);
+            vec2 b = vec2(hx, hy - rBR);
+            vec2 p0 = mix(a, b, t0);
+            vec2 p1 = mix(a, b, t1);
+            d = min(d, sdSegmentButtStroke(p, p0, p1, halfW));
+        }
+        cursor = s1;
+    }
+
+    // Bottom-right arc
+    {
+        float segLen = arcBR;
+        float s0 = cursor;
+        float s1 = cursor + segLen;
+        float o0 = max(intervalStart, s0);
+        float o1 = min(intervalEnd, s1);
+        if (o1 > o0 + 1e-6 && segLen > 1e-6) {
+            float t0 = (o0 - s0) / segLen;
+            float t1 = (o1 - s0) / segLen;
+            float a0 = 0.0 + t0 * 0.5 * PI;
+            float a1 = 0.0 + t1 * 0.5 * PI;
+            vec2 c = vec2(hx - rBR, hy - rBR);
+            d = min(d, sdArcButtStroke(p, c, rBR, a0, a1, halfW));
+        }
+        cursor = s1;
+    }
+
+    // Bottom segment
+    {
+        float segLen = bottomLen;
+        float s0 = cursor;
+        float s1 = cursor + segLen;
+        float o0 = max(intervalStart, s0);
+        float o1 = min(intervalEnd, s1);
+        if (o1 > o0 + 1e-6 && segLen > 1e-6) {
+            float t0 = (o0 - s0) / segLen;
+            float t1 = (o1 - s0) / segLen;
+            vec2 a = vec2(hx - rBR, hy);
+            vec2 b = vec2(-hx + rBL, hy);
+            vec2 p0 = mix(a, b, t0);
+            vec2 p1 = mix(a, b, t1);
+            d = min(d, sdSegmentButtStroke(p, p0, p1, halfW));
+        }
+        cursor = s1;
+    }
+
+    // Bottom-left arc
+    {
+        float segLen = arcBL;
+        float s0 = cursor;
+        float s1 = cursor + segLen;
+        float o0 = max(intervalStart, s0);
+        float o1 = min(intervalEnd, s1);
+        if (o1 > o0 + 1e-6 && segLen > 1e-6) {
+            float t0 = (o0 - s0) / segLen;
+            float t1 = (o1 - s0) / segLen;
+            float a0 = 0.5 * PI + t0 * 0.5 * PI;
+            float a1 = 0.5 * PI + t1 * 0.5 * PI;
+            vec2 c = vec2(-hx + rBL, hy - rBL);
+            d = min(d, sdArcButtStroke(p, c, rBL, a0, a1, halfW));
+        }
+        cursor = s1;
+    }
+
+    // Left segment
+    {
+        float segLen = leftLen;
+        float s0 = cursor;
+        float s1 = cursor + segLen;
+        float o0 = max(intervalStart, s0);
+        float o1 = min(intervalEnd, s1);
+        if (o1 > o0 + 1e-6 && segLen > 1e-6) {
+            float t0 = (o0 - s0) / segLen;
+            float t1 = (o1 - s0) / segLen;
+            vec2 a = vec2(-hx, hy - rBL);
+            vec2 b = vec2(-hx, -hy + rTL);
+            vec2 p0 = mix(a, b, t0);
+            vec2 p1 = mix(a, b, t1);
+            d = min(d, sdSegmentButtStroke(p, p0, p1, halfW));
+        }
+        cursor = s1;
+    }
+
+    // Top-left arc
+    {
+        float segLen = arcTL;
+        float s0 = cursor;
+        float s1 = cursor + segLen;
+        float o0 = max(intervalStart, s0);
+        float o1 = min(intervalEnd, s1);
+        if (o1 > o0 + 1e-6 && segLen > 1e-6) {
+            float t0 = (o0 - s0) / segLen;
+            float t1 = (o1 - s0) / segLen;
+            float a0 = PI + t0 * 0.5 * PI;
+            float a1 = PI + t1 * 0.5 * PI;
+            vec2 c = vec2(-hx + rTL, -hy + rTL);
+            d = min(d, sdArcButtStroke(p, c, rTL, a0, a1, halfW));
+        }
+    }
+
+    return d;
+}
+
+float addRoundedRectTrimCaps(float d, vec2 p, vec2 halfSize, vec4 radii, float startS, float endS, float halfW, uint capMode) {
+    if (capMode != CAP_ROUND && capMode != CAP_SQUARE) {
+        return d;
+    }
+
+    float epsS = 0.01;
+    vec2 startPos;
+    vec2 endPos;
+    vec2 startTan;
+    vec2 endTan;
+    vec2 tmp;
+
+    roundedRectPerCornerPointAndTangentAtS(startS, halfSize, radii, startPos, tmp);
+    roundedRectPerCornerPointAndTangentAtS(endS, halfSize, radii, endPos, tmp);
+
+    roundedRectPerCornerPointAndTangentAtS(startS + epsS, halfSize, radii, tmp, startTan);
+    roundedRectPerCornerPointAndTangentAtS(endS - epsS, halfSize, radii, tmp, endTan);
+
+    if (capMode == CAP_ROUND) {
+        d = min(d, length(p - startPos) - halfW);
+        d = min(d, length(p - endPos) - halfW);
+        return d;
+    }
+
+    d = min(d, sdSegmentButtStroke(p, startPos - startTan * halfW, startPos, halfW));
+    d = min(d, sdSegmentButtStroke(p, endPos, endPos + endTan * halfW, halfW));
+    return d;
+}
+
+TrimDashMask applyTrimMaskRoundedRect2D(uint cmdFlags, vec4 trimParams, vec2 p, vec2 halfSize, vec4 radii, float halfW, float baseStrokeD) {
+    TrimDashMask m;
+    m.d = baseStrokeD;
+    m.alphaMul = 1.0;
+
+    if ((cmdFlags & FLAG_TRIM_ENABLED) == 0u || trimParams.y <= 0.0) {
+        return m;
+    }
+
+    uint capMode = getTrimCap(cmdFlags);
+    if (capMode == CAP_SOFT) {
+        return m;
+    }
+
+    float hx = halfSize.x;
+    float hy = halfSize.y;
+    float maxR = max(min(hx, hy), 0.0);
+    float rTL = clamp(radii.x, 0.0, maxR);
+    float rTR = clamp(radii.y, 0.0, maxR);
+    float rBR = clamp(radii.z, 0.0, maxR);
+    float rBL = clamp(radii.w, 0.0, maxR);
+
+    float w = hx * 2.0;
+    float h = hy * 2.0;
+
+    float topLen = max(w - rTL - rTR, 0.0);
+    float rightLen = max(h - rTR - rBR, 0.0);
+    float bottomLen = max(w - rBR - rBL, 0.0);
+    float leftLen = max(h - rBL - rTL, 0.0);
+
+    float arcTL = 0.5 * PI * rTL;
+    float arcTR = 0.5 * PI * rTR;
+    float arcBR = 0.5 * PI * rBR;
+    float arcBL = 0.5 * PI * rBL;
+
+    float totalLen = topLen + arcTR + rightLen + arcBR + bottomLen + arcBL + leftLen + arcTL;
+    if (totalLen <= 1e-6) {
+        m.d = 1e10;
+        return m;
+    }
+
+    float start = trimParams.x + trimParams.z;
+    float length = trimParams.y;
+    if (length >= totalLen) {
+        return m;
+    }
+
+    float st = modPositive(start, totalLen);
+    float en = st + length;
+
+    vec4 clampedRadii = vec4(rTL, rTR, rBR, rBL);
+
+    float d = 1e10;
+    if (en <= totalLen) {
+        d = sdTrimmedStrokeRoundedRectInterval(p, halfSize, clampedRadii, st, en, halfW);
+    } else {
+        float d0 = sdTrimmedStrokeRoundedRectInterval(p, halfSize, clampedRadii, st, totalLen, halfW);
+        float d1 = sdTrimmedStrokeRoundedRectInterval(p, halfSize, clampedRadii, 0.0, en - totalLen, halfW);
+        d = min(d0, d1);
+    }
+
+    d = addRoundedRectTrimCaps(d, p, halfSize, clampedRadii, st, en, halfW, capMode);
+
+    m.d = d;
+    return m;
+}
+
+SdfEval applyBooleanEvalWithBlend(SdfEval accumulated, SdfEval nextEval, uint op, float smoothness, out float blendT, out bool chooseNextOut) {
+    float resultD = applyBooleanWithBlend(accumulated.d, nextEval.d, op, smoothness, blendT);
+
+    bool chooseNext = false;
+    if (op == BOOL_NONE) {
+        chooseNext = true;
+    }
+    else if (op == BOOL_UNION) {
+        chooseNext = nextEval.d < accumulated.d;
+    }
+    else if (op == BOOL_INTERSECT) {
+        chooseNext = nextEval.d > accumulated.d;
+    }
+    else if (op == BOOL_SUBTRACT) {
+        chooseNext = (-nextEval.d) > accumulated.d;
+    }
+    else if (op == BOOL_SMOOTH_UNION || op == BOOL_SMOOTH_INTERSECT) {
+        chooseNext = blendT >= 0.5;
+    }
+    else if (op == BOOL_SMOOTH_SUBTRACT) {
+        chooseNext = (-nextEval.d) > accumulated.d;
+    }
+    else if (op == BOOL_EXCLUDE) {
+        float d1 = max(accumulated.d, -nextEval.d);
+        float d2 = max(nextEval.d, -accumulated.d);
+        bool useFirst = d1 < d2;
+        if (useFirst) {
+            chooseNext = (-nextEval.d) > accumulated.d;
+        } else {
+            chooseNext = nextEval.d > (-accumulated.d);
+        }
+    }
+
+    chooseNextOut = chooseNext;
+    SdfEval outEval = chooseNext ? nextEval : accumulated;
+    outEval.d = resultD;
+    outEval.featherSigmaSqr = mix(accumulated.featherSigmaSqr, nextEval.featherSigmaSqr, blendT);
+    outEval.featherDirection = chooseNext ? nextEval.featherDirection : accumulated.featherDirection;
+    return outEval;
+}
+
+vec4 sampleGradientStops(uint stopStart, uint stopCount, float t) {
+    vec4 firstColor = gradientStops.stops[stopStart].color;
+    vec4 lastColor = gradientStops.stops[stopStart + stopCount - 1u].color;
+    float firstT = gradientStops.stops[stopStart].params.x;
+    float lastT = gradientStops.stops[stopStart + stopCount - 1u].params.x;
+
+    if (t <= firstT) return firstColor;
+    if (t >= lastT) return lastColor;
+
+    for (uint stopIndex = 1u; stopIndex < stopCount; stopIndex++) {
+        float stopT = gradientStops.stops[stopStart + stopIndex].params.x;
+        if (t <= stopT) {
+            float prevT = gradientStops.stops[stopStart + stopIndex - 1u].params.x;
+            vec4 prevC = gradientStops.stops[stopStart + stopIndex - 1u].color;
+            vec4 nextC = gradientStops.stops[stopStart + stopIndex].color;
+            float denom = max(stopT - prevT, 0.00001);
+            float u = clamp((t - prevT) / denom, 0.0, 1.0);
+            return mix(prevC, nextC, u);
+        }
+    }
+
+    return lastColor;
+}
+
+// Compute gradient color based on position and parameters
+vec4 computeGradient(vec4 startColor, vec4 endColor, vec2 localPos, vec2 size, float gradientType, vec4 gradientParams, uint stopStart, uint stopCount) {
+    if (gradientType < 0.5) {
+        return startColor; // No gradient (type 0)
+    }
+
+    if (gradientType < 1.5) {
+        // Linear gradient (type 1)
+        float angle = gradientParams.x;
+        vec2 dir = vec2(cos(angle), sin(angle));
+        // Normalize position to [-1, 1] based on size
+        vec2 normalizedPos = localPos / max(size, vec2(1.0));
+        float t = dot(normalizedPos, dir) * 0.5 + 0.5;
+        t = clamp(t, 0.0, 1.0);
+        if (stopCount >= 2u) {
+            return sampleGradientStops(stopStart, stopCount, t);
+        }
+        return mix(startColor, endColor, t);
+    }
+
+    if (gradientType < 2.5) {
+        // Radial gradient (type 2)
+        vec2 center = gradientParams.yz;
+        vec2 offset = localPos - center;
+        float radiusScale = max(gradientParams.x, 0.00001);
+        float baseDist = max(max(size.x, size.y), 1.0);
+        float maxDist = baseDist * radiusScale;
+        float t = length(offset) / max(maxDist, 1.0);
+        t = clamp(t, 0.0, 1.0);
+        if (stopCount >= 2u) {
+            return sampleGradientStops(stopStart, stopCount, t);
+        }
+        return mix(startColor, endColor, t);
+    }
+
+    if (gradientType < 3.5) {
+        // SV (Saturation-Value) gradient for color picker (type 3)
+        // startColor = hue color at full saturation and value
+        // Result: mix(white, hueColor, saturation) * value
+        // Note: size is half-size, so multiply by 2 to get full size for UV calculation
+        vec2 uv = localPos / max(size * 2.0, vec2(1.0)) + 0.5; // Convert to 0-1 range
+        float saturation = clamp(uv.x, 0.0, 1.0);
+        float value = clamp(1.0 - uv.y, 0.0, 1.0); // Y increases downward, value decreases
+        vec3 white = vec3(1.0);
+        vec3 color = mix(white, startColor.rgb, saturation) * value;
+        return vec4(color, startColor.a);
+    }
+
+    if (gradientType < 4.5) {
+        // Angular / conic gradient (type 4)
+        vec2 center = gradientParams.yz;
+        vec2 offset = localPos - center;
+        float angleOffset = gradientParams.x;
+        float a = atan(offset.y, offset.x);
+        float t = fract((a - angleOffset) / TAU);
+        if (stopCount >= 2u) {
+            return sampleGradientStops(stopStart, stopCount, t);
+        }
+        return mix(startColor, endColor, t);
+    }
+
+    return startColor;
+}
+
+// Render a shape/group with all effects (glow, stroke, fill)
+void renderShape(SdfEval eval, uint cmdIdx, vec2 pixelPos, inout vec4 finalColor) {
+    // Early-out if pixel is outside clip rect
+    vec4 clipRect = getCommandClipRect(cmdIdx);
+    if (!isInsideClipRect(pixelPos, clipRect)) return;
+
+    uint cmdFlags = getCommandFlags(cmdIdx);
+    if ((cmdFlags & FLAG_INTERNAL_NO_RENDER) != 0u) return;
+
+    // Compute mask alpha from active masks
+    float maskAlpha = g_maskCombinedAlpha;
+    if (maskAlpha <= 0.0) return;  // Early-out if fully masked
+
+    float d = eval.d;
+    uint blendMode = getBlendModeFromFlags(cmdFlags);
+    vec4 trimParams = getCommandTrimParams(cmdIdx);
+    vec4 dashParams = getCommandDashParams(cmdIdx);
+
+    vec4 fillColor = getCommandColor(cmdIdx);
+    vec4 strokeColor = getCommandStrokeColor(cmdIdx);
+    vec4 params = getCommandParams(cmdIdx);
+    vec4 effects = getCommandEffects(cmdIdx);
+    vec4 gradientColor = getCommandGradientColor(cmdIdx);
+    vec4 gradientParams = getCommandGradientParams(cmdIdx);
+
+    float strokeWidth = effects.x;
+    float glowRadius = effects.y;
+    float softEdge = max(effects.z, 0.5);
+    float gradientType = effects.w;
+
+    vec2 size = getCommandSize(cmdIdx);
+    vec2 localPos = computeFillLocalPos(cmdIdx, pixelPos);
+    uint shapeType = getCommandType(cmdIdx);
+    vec4 warpParams = getCommandWarpParams(cmdIdx);
+    uint stopCount = uint(warpParams.x);
+    uint stopStart = uint(gradientParams.w);
+    vec4 fillAtPixel = computeGradient(fillColor, gradientColor, localPos, size, gradientType, gradientParams, stopStart, stopCount);
+    vec4 strokeAtPixel = strokeColor;
+    if (gradientType > 0.5) {
+        strokeAtPixel = computeGradient(strokeColor, gradientColor, localPos, size, gradientType, gradientParams, stopStart, stopCount);
+    }
+
+    // === 1. GLOW (outermost layer) ===
+    if (glowRadius > 0.0 && d < glowRadius * 2.0) {
+        // Gaussian-like falloff for soft glow
+        float t = max(d, 0.0) / glowRadius;
+        float glowAlpha = exp(-t * t * 2.0) * maskAlpha;
+        vec4 glowOut = fillAtPixel;
+        glowOut.a *= glowAlpha * 0.6;
+        blendOver(finalColor, glowOut, blendMode);
+    }
+
+    // === 2. STROKE (middle layer) ===
+    if (strokeWidth > 0.0 && strokeColor.a > 0.0) {
+        float halfW = strokeWidth * 0.5;
+        float strokeD = abs(d) - halfW;
+        TrimDashMask mask;
+        bool isSharpRect = shapeType == SHAPE_RECT;
+        bool isRoundedRectZero = shapeType == SHAPE_ROUNDED_RECT && params.x <= 0.0001;
+        bool isRoundedRectPerCornerZero = shapeType == SHAPE_ROUNDED_RECT_PER_CORNER &&
+            params.x <= 0.0001 && params.y <= 0.0001 && params.z <= 0.0001 && params.w <= 0.0001;
+
+        if ((cmdFlags & (FLAG_TRIM_ENABLED | FLAG_DASH_ENABLED)) != 0u &&
+            (isSharpRect || isRoundedRectZero || isRoundedRectPerCornerZero)) {
+            mask = applyTrimDashMaskRect(cmdFlags, trimParams, dashParams, localPos, size, halfW);
+        } else {
+            mask = applyTrimDashMask(cmdFlags, trimParams, dashParams, eval, strokeD, halfW);
+        }
+        float strokeAlpha = computeCoverageAlpha(mask.d, softEdge, eval.featherSigmaSqr, eval.featherDirection) * mask.alphaMul * maskAlpha;
+        vec4 stroke = strokeAtPixel;
+        stroke.a *= strokeAlpha;
+        blendOver(finalColor, stroke, blendMode);
+    }
+
+    // === 3. FILL (innermost layer) ===
+    float fillAlpha = computeCoverageAlpha(d, softEdge, eval.featherSigmaSqr, eval.featherDirection) * maskAlpha;
+    if (shapeType == SHAPE_RECT && eval.featherSigmaSqr > 1e-8) {
+        fillAlpha = computeBoxCoverageAlpha(localPos, size, d, softEdge, eval.featherSigmaSqr, eval.featherDirection) * maskAlpha;
+    }
+    if (fillAlpha > 0.0) {
+        vec4 fill = fillAtPixel;
+        fill.a *= fillAlpha;
+        blendOver(finalColor, fill, blendMode);
+    }
+}
+
+// Render a boolean-accumulated distance using the target command's styling, but with a per-pixel fill color.
+// This is used to support smooth boolean blending of fills without forcing a single "GroupEnd" fill color.
+void renderShapeWithFillOverride(SdfEval eval, uint cmdIdx, vec2 pixelPos, vec4 fillOverride, inout vec4 finalColor) {
+    // Early-out if pixel is outside clip rect
+    vec4 clipRect = getCommandClipRect(cmdIdx);
+    if (!isInsideClipRect(pixelPos, clipRect)) return;
+
+    uint cmdFlags = getCommandFlags(cmdIdx);
+    if ((cmdFlags & FLAG_INTERNAL_NO_RENDER) != 0u) return;
+
+    // Compute mask alpha from active masks
+    float maskAlpha = g_maskCombinedAlpha;
+    if (maskAlpha <= 0.0) return;
+
+    float d = eval.d;
+    uint blendMode = getBlendModeFromFlags(cmdFlags);
+    vec4 trimParams = getCommandTrimParams(cmdIdx);
+    vec4 dashParams = getCommandDashParams(cmdIdx);
+
+    vec4 strokeColor = getCommandStrokeColor(cmdIdx);
+    vec4 effects = getCommandEffects(cmdIdx);
+
+    float strokeWidth = effects.x;
+    float glowRadius = effects.y;
+    float softEdge = max(effects.z, 0.5);
+
+    // === 1. GLOW (outermost layer) ===
+    if (glowRadius > 0.0 && d < glowRadius * 2.0) {
+        float t = max(d, 0.0) / glowRadius;
+        float glowAlpha = exp(-t * t * 2.0) * maskAlpha;
+        vec4 glowOut = fillOverride;
+        glowOut.a *= glowAlpha * 0.6;
+        blendOver(finalColor, glowOut, blendMode);
+    }
+
+    // === 2. STROKE (middle layer) ===
+    if (strokeWidth > 0.0 && strokeColor.a > 0.0) {
+        float halfW = strokeWidth * 0.5;
+        float strokeD = abs(d) - halfW;
+        TrimDashMask mask = applyTrimDashMask(cmdFlags, trimParams, dashParams, eval, strokeD, halfW);
+        float strokeAlpha = computeCoverageAlpha(mask.d, softEdge, eval.featherSigmaSqr, eval.featherDirection) * mask.alphaMul * maskAlpha;
+        vec4 stroke = strokeColor;
+        stroke.a *= strokeAlpha;
+        blendOver(finalColor, stroke, blendMode);
+    }
+
+    // === 3. FILL (innermost layer) ===
+    float fillAlpha = computeCoverageAlpha(d, softEdge, eval.featherSigmaSqr, eval.featherDirection) * maskAlpha;
+    if (eval.featherSigmaSqr > 1e-8) {
+        uint shapeType = getCommandType(cmdIdx);
+        if (shapeType == SHAPE_RECT) {
+            vec2 halfSize = getCommandSize(cmdIdx);
+            vec2 localPos = computeFillLocalPos(cmdIdx, pixelPos);
+            fillAlpha = computeBoxCoverageAlpha(localPos, halfSize, d, softEdge, eval.featherSigmaSqr, eval.featherDirection) * maskAlpha;
+        }
+    }
+    if (fillAlpha > 0.0) {
+        vec4 fill = fillOverride;
+        fill.a *= fillAlpha;
+        blendOver(finalColor, fill, blendMode);
+    }
+}
+
+// Re-evaluate a boolean group range (begin..end) at an arbitrary pixel position.
+// This is used for shadow offset on boolean group results (GroupEnd).
+SdfEval evaluateBooleanGroupEval(uint groupBeginCmdIdx, uint groupEndCmdIdx, vec2 pixelPos) {
+    // Boolean group stack for nested groups
+    SdfEval distStack[MAX_GROUP_DEPTH];
+    bool distValidStack[MAX_GROUP_DEPTH];
+    uint opStack[MAX_GROUP_DEPTH];
+    float smoothStack[MAX_GROUP_DEPTH];
+    int groupDepth = 0;
+
+    // Accumulation state (mirrors the main loop logic)
+    SdfEval accumulatedEval = makeEval(1e10);
+    bool hasAccumulated = false;
+    bool inGroup = false;
+
+    for (uint cmdIdx = groupBeginCmdIdx; cmdIdx <= groupEndCmdIdx; cmdIdx++) {
+        uint shapeType = getCommandType(cmdIdx);
+
+        if (shapeType == SHAPE_GROUP_BEGIN) {
+            vec2 boolParams = getCommandBooleanParams(cmdIdx);
+            uint groupOp = uint(boolParams.x);
+            float groupSmooth = boolParams.y;
+
+            if (groupDepth < MAX_GROUP_DEPTH) {
+                distStack[groupDepth] = accumulatedEval;
+                distValidStack[groupDepth] = hasAccumulated;
+                opStack[groupDepth] = groupOp;
+                smoothStack[groupDepth] = groupSmooth;
+                groupDepth++;
+            }
+
+            accumulatedEval = makeEval(1e10);
+            hasAccumulated = false;
+            inGroup = true;
+            continue;
+        }
+
+        if (shapeType == SHAPE_GROUP_END) {
+            if (groupDepth > 0) {
+                groupDepth--;
+
+                SdfEval groupResult = accumulatedEval;
+                bool groupHas = hasAccumulated;
+
+                if (groupDepth == 0) {
+                    return groupHas ? groupResult : makeEval(1e10);
+                }
+
+                SdfEval parentD = distStack[groupDepth];
+                bool parentHas = distValidStack[groupDepth];
+                uint parentOp = opStack[groupDepth - 1];
+                float parentSmooth = smoothStack[groupDepth - 1];
+
+                if (!parentHas) {
+                    accumulatedEval = groupResult;
+                    hasAccumulated = groupHas;
+                } else if (groupHas) {
+                    float blendT;
+                    bool chooseNext;
+                    accumulatedEval = applyBooleanEvalWithBlend(parentD, groupResult, parentOp, parentSmooth, blendT, chooseNext);
+                    hasAccumulated = true;
+                } else {
+                    accumulatedEval = parentD;
+                    hasAccumulated = true;
+                }
+
+                inGroup = true;
+            }
+            continue;
+        }
+
+        // Regular shape
+        SdfEval evalCmd = evaluateSdfEval(cmdIdx, pixelPos);
+        float d = evalCmd.d;
+        vec2 boolParams = getCommandBooleanParams(cmdIdx);
+        uint boolOp = uint(boolParams.x);
+        float smoothness = boolParams.y;
+
+        if (inGroup) {
+            if (!hasAccumulated) {
+                accumulatedEval = evalCmd;
+                hasAccumulated = true;
+            } else {
+                uint groupOp = opStack[groupDepth - 1];
+                float groupSmooth = smoothStack[groupDepth - 1];
+                uint op = (boolOp == BOOL_NONE) ? groupOp : boolOp;
+                float sm = (boolOp == BOOL_NONE) ? groupSmooth : smoothness;
+                float blendT;
+                bool chooseNext;
+                accumulatedEval = applyBooleanEvalWithBlend(accumulatedEval, evalCmd, op, sm, blendT, chooseNext);
+                hasAccumulated = true;
+            }
+        } else {
+            // Not expected for group-range evaluation, but keep behavior consistent.
+            if (d < 1e9) {
+                accumulatedEval = evalCmd;
+                hasAccumulated = true;
+            }
+        }
+    }
+
+    return makeEval(1e10);
+}
+
+// Render a boolean-accumulated distance using the target command's clip/mask state,
+// but with per-pixel overrides for fill + effect styling.
+void renderShapeWithStyleOverride(SdfEval eval, uint cmdIdx, vec2 pixelPos,
+    vec4 fillOverride,
+    vec4 strokeColorOverride, float strokeWidthOverride,
+    float glowRadiusOverride,
+    uint trimDashOverrideEnabled, uint trimDashFlagsOverride, vec4 trimParamsOverride, vec4 dashParamsOverride,
+    inout vec4 finalColor)
+{
+    // Early-out if pixel is outside clip rect
+    vec4 clipRect = getCommandClipRect(cmdIdx);
+    if (!isInsideClipRect(pixelPos, clipRect)) {
+        return;
+    }
+
+    uint cmdFlags = getCommandFlags(cmdIdx);
+    if ((cmdFlags & FLAG_INTERNAL_NO_RENDER) != 0u) {
+        return;
+    }
+
+    // Compute mask alpha from active masks
+    float maskAlpha = g_maskCombinedAlpha;
+    if (maskAlpha <= 0.0) {
+        return;
+    }
+
+    float d = eval.d;
+    if (trimDashOverrideEnabled != 0u) {
+        cmdFlags = (cmdFlags & ~TRIM_DASH_FLAGS_MASK) | (trimDashFlagsOverride & TRIM_DASH_FLAGS_MASK);
+    }
+    uint blendMode = getBlendModeFromFlags(cmdFlags);
+    vec4 trimParams = (trimDashOverrideEnabled != 0u) ? trimParamsOverride : getCommandTrimParams(cmdIdx);
+    vec4 dashParams = (trimDashOverrideEnabled != 0u) ? dashParamsOverride : getCommandDashParams(cmdIdx);
+
+    vec4 effects = getCommandEffects(cmdIdx);
+    float softEdge = max(effects.z, 0.5);
+
+    float strokeWidth = strokeWidthOverride;
+    float glowRadius = glowRadiusOverride;
+
+    // === 1. GLOW (outermost layer) ===
+    if (glowRadius > 0.0 && d < glowRadius * 2.0) {
+        float t = max(d, 0.0) / glowRadius;
+        float glowAlpha = exp(-t * t * 2.0) * maskAlpha;
+        vec4 glowOut = fillOverride;
+        glowOut.a *= glowAlpha * 0.6;
+        blendOver(finalColor, glowOut, blendMode);
+    }
+
+    // === 2. STROKE (middle layer) ===
+    if (strokeWidth > 0.0 && strokeColorOverride.a > 0.0) {
+        float halfW = strokeWidth * 0.5;
+        float strokeD = abs(d) - halfW;
+        TrimDashMask mask = applyTrimDashMask(cmdFlags, trimParams, dashParams, eval, strokeD, halfW);
+        float strokeAlpha = computeCoverageAlpha(mask.d, softEdge, eval.featherSigmaSqr, eval.featherDirection) * mask.alphaMul * maskAlpha;
+        vec4 stroke = strokeColorOverride;
+        stroke.a *= strokeAlpha;
+        blendOver(finalColor, stroke, blendMode);
+    }
+
+    // === 3. FILL (innermost layer) ===
+    float fillAlpha = computeCoverageAlpha(d, softEdge, eval.featherSigmaSqr, eval.featherDirection) * maskAlpha;
+    if (eval.featherSigmaSqr > 1e-8) {
+        uint shapeType = getCommandType(cmdIdx);
+        if (shapeType == SHAPE_RECT) {
+            vec2 halfSize = getCommandSize(cmdIdx);
+            vec2 localPos = computeFillLocalPos(cmdIdx, pixelPos);
+            fillAlpha = computeBoxCoverageAlpha(localPos, halfSize, d, softEdge, eval.featherSigmaSqr, eval.featherDirection) * maskAlpha;
+        }
+    }
+    if (fillAlpha > 0.0) {
+        vec4 fill = fillOverride;
+        fill.a *= fillAlpha;
+        blendOver(finalColor, fill, blendMode);
+    }
+}
+
+// Render a single shape with its own SDF evaluation (for non-grouped shapes)
+void renderSingleShape(uint cmdIdx, vec2 pixelPos, inout vec4 finalColor) {
+    // Early-out if pixel is outside clip rect
+    vec4 clipRect = getCommandClipRect(cmdIdx);
+    if (!isInsideClipRect(pixelPos, clipRect)) return;
+
+    // Compute mask alpha from active masks
+    float maskAlpha = g_maskCombinedAlpha;
+    if (maskAlpha <= 0.0) return;  // Early-out if fully masked
+
+    uint shapeType = getCommandType(cmdIdx);
+    uint flags = getCommandFlags(cmdIdx);
+    uint blendMode = getBlendModeFromFlags(flags);
+
+    if ((flags & FLAG_INTERNAL_NO_RENDER) != 0u) {
+        return;
+    }
+
+    if (shapeType == SHAPE_IMAGE) {
+        vec2 center = getCommandPosition(cmdIdx);
+        vec2 halfSize = getCommandSize(cmdIdx);
+
+        vec4 tint = getCommandColor(cmdIdx);
+        vec4 effects = getCommandEffects(cmdIdx);
+        float softEdge = max(effects.z, 0.5);
+
+        float featherSigmaSqr = 0.0;
+        uint featherDirection = FEATHER_DIR_BOTH;
+        vec2 modifiedPixelPos = pixelPos;
+        applyModifierChain(cmdIdx, modifiedPixelPos, featherSigmaSqr, featherDirection);
+
+        vec2 p = modifiedPixelPos - center;
+
+        float rotation = getCommandRotation(cmdIdx).x;
+        if (rotation != 0.0) {
+            float s = sin(rotation);
+            float c = cos(rotation);
+            p = vec2(c * p.x + s * p.y, -s * p.x + c * p.y);
+        }
+
+        uint warpHead = getCommandWarpHead(cmdIdx);
+        if (warpHead != 0u) {
+            p = applyWarpChain(p, warpHead);
+        }
+
+        float boxDist = sdBox(p, halfSize);
+        float edgeAlpha = computeCoverageAlpha(boxDist, softEdge, featherSigmaSqr, featherDirection);
+        if (edgeAlpha <= 0.0) {
+            return;
+        }
+
+        vec2 local01 = (p + halfSize) / max(halfSize * 2.0, vec2(1e-6));
+        vec4 uvRect = getCommandParams(cmdIdx);
+        vec2 uv = mix(uvRect.xy, uvRect.zw, clamp(local01, 0.0, 1.0));
+        vec4 texel = sampleImageColor(cmdIdx, uv) * tint;
+
+        float alpha = texel.a * edgeAlpha * maskAlpha;
+        if (alpha <= 0.0) {
+            return;
+        }
+
+        vec4 outColor = vec4(texel.rgb, alpha);
+        blendOver(finalColor, outColor, blendMode);
+        return;
+    }
+
+    if (shapeType == SHAPE_GLYPH) {
+        // Skip internal glyphs - they are rendered by their parent TextGroup
+        if ((flags & FLAG_INTERNAL_GLYPH) != 0u) {
+            return;
+        }
+
+        vec2 center = getCommandPosition(cmdIdx);
+        vec2 halfSize = getCommandSize(cmdIdx);
+
+        // Get effect parameters
+        vec4 fillColor = getCommandColor(cmdIdx);
+        vec4 strokeColor = getCommandStrokeColor(cmdIdx);
+        vec4 effects = getCommandEffects(cmdIdx);
+        vec4 gradientColor = getCommandGradientColor(cmdIdx);
+        vec4 gradientParams = getCommandGradientParams(cmdIdx);
+        vec4 warpParams = getCommandWarpParams(cmdIdx);
+        uint stopCount = uint(warpParams.x);
+        uint stopStart = uint(gradientParams.w);
+        float featherSigmaSqr = 0.0;
+        uint featherDirection = FEATHER_DIR_BOTH;
+        vec2 modifiedPixelPos = pixelPos;
+        applyModifierChain(cmdIdx, modifiedPixelPos, featherSigmaSqr, featherDirection);
+
+        float strokeWidth = effects.x;
+        float glowRadius = effects.y;
+        float softEdge = max(effects.z, 0.5);
+        float gradientType = effects.w;
+
+        uint warpHead = getCommandWarpHead(cmdIdx);
+
+        // Transform to glyph-local coordinates (centered at origin)
+        vec2 p = modifiedPixelPos - center;
+
+        // Apply rigid rotation (stored in dedicated Rotation field).
+        float rotation = getCommandRotation(cmdIdx).x;
+        if (rotation != 0.0) {
+            float s = sin(rotation);
+            float c = cos(rotation);
+            p = vec2(c * p.x + s * p.y, -s * p.x + c * p.y);
+        }
+
+        // Apply warp BEFORE computing UV
+        if (warpHead != 0u) {
+            p = applyWarpChain(p, warpHead);
+        }
+
+        // Now p is in local coords [-halfSize, halfSize]
+        // Convert to [0,1] for UV lookup
+        vec2 local01 = (p + halfSize) / (halfSize * 2.0);
+
+        // Check if inside the glyph quad (after warp)
+        bool insideQuad = local01.x >= 0.0 && local01.x <= 1.0 &&
+                          local01.y >= 0.0 && local01.y <= 1.0;
+
+        // Compute distance to quad edge for pixels outside
+        float quadDist = 0.0;
+        if (!insideQuad) {
+            vec2 closest = clamp(p, -halfSize, halfSize);
+            quadDist = length(p - closest);
+        }
+
+        // Expand bounds check to account for effects
+        float featherRadius = sqrt(max(featherSigmaSqr, 0.0)) * 3.0;
+        float effectMargin = max(glowRadius, strokeWidth * 0.5) + featherRadius + softEdge;
+        if (quadDist > effectMargin) {
+            return;  // Too far from glyph for any effect to reach
+        }
+
+        // Sample UV (clamped to valid range)
+        vec4 uvRect = getCommandParams(cmdIdx);
+        vec2 uv = mix(uvRect.xy, uvRect.zw, clamp(local01, 0.0, 1.0));
+
+        // Sample SDF value from atlas (0.5 = edge, >0.5 = inside, <0.5 = outside)
+        float sdfValue = sampleGlyphSdf(cmdIdx, uv);
+
+        // Convert 0-1 SDF value to signed distance in pixels
+        // Multiplier = 256 / SdfPixelDistScale (8.0 in font compiler) = 32.0
+        float pixelScale = max(halfSize.x, halfSize.y) * 2.0 / 32.0;
+        float sdfDist = (0.5 - sdfValue) * pixelScale * 32.0;
+
+        // Final distance: extrapolate when outside quad
+        float d = insideQuad ? sdfDist : (quadDist + max(sdfDist, 0.0));
+
+        vec4 fillAtPixel = computeGradient(fillColor, gradientColor, p, halfSize, gradientType, gradientParams, stopStart, stopCount);
+        vec4 strokeAtPixel = strokeColor;
+        if (gradientType > 0.5) {
+            strokeAtPixel = computeGradient(strokeColor, gradientColor, p, halfSize, gradientType, gradientParams, stopStart, stopCount);
+        }
+
+        // === 1. GLOW (outermost layer) ===
+        if (glowRadius > 0.0 && d < glowRadius * 2.0) {
+            // Gaussian-like falloff for soft glow
+            float t = max(d, 0.0) / glowRadius;
+            float glowAlpha = exp(-t * t * 2.0) * maskAlpha;
+            vec4 glowOut = fillAtPixel;
+            glowOut.a *= glowAlpha * 0.6;
+            blendOver(finalColor, glowOut, blendMode);
+        }
+
+        // === 2. STROKE (middle layer) ===
+        if (strokeWidth > 0.0 && strokeColor.a > 0.0) {
+            float strokeD = abs(d) - strokeWidth * 0.5;
+            float strokeAlpha = computeCoverageAlpha(strokeD, softEdge, featherSigmaSqr, featherDirection) * maskAlpha;
+            vec4 stroke = strokeAtPixel;
+            stroke.a *= strokeAlpha;
+            blendOver(finalColor, stroke, blendMode);
+        }
+
+        // === 3. FILL (innermost layer) ===
+        float fillAlpha = computeCoverageAlpha(d, softEdge, featherSigmaSqr, featherDirection) * maskAlpha;
+        if (fillAlpha > 0.0) {
+            vec4 fill = fillAtPixel;
+            fill.a *= fillAlpha;
+            blendOver(finalColor, fill, blendMode);
+        }
+
+        return;
+    }
+
+    // === TEXT GROUP: Union of glyphs with shared warp/effects ===
+    if (shapeType == SHAPE_TEXT_GROUP) {
+        vec2 groupCenter = getCommandPosition(cmdIdx);
+        vec2 groupHalfSize = getCommandSize(cmdIdx);
+        vec4 params = getCommandParams(cmdIdx);
+
+        // Params.x = first glyph index, Params.y = glyph count
+        uint firstGlyph = uint(params.x);
+        uint glyphCount = uint(params.y);
+
+        // Get effect parameters from the TextGroup command
+        vec4 fillColor = getCommandColor(cmdIdx);
+        vec4 strokeColor = getCommandStrokeColor(cmdIdx);
+        vec4 effects = getCommandEffects(cmdIdx);
+        vec4 gradientColor = getCommandGradientColor(cmdIdx);
+        vec4 gradientParams = getCommandGradientParams(cmdIdx);
+        vec4 warpParams = getCommandWarpParams(cmdIdx);
+        uint stopCount = uint(warpParams.x);
+        uint stopStart = uint(gradientParams.w);
+        float featherSigmaSqr = 0.0;
+        uint featherDirection = FEATHER_DIR_BOTH;
+        vec2 modifiedPixelPos = pixelPos;
+        applyModifierChain(cmdIdx, modifiedPixelPos, featherSigmaSqr, featherDirection);
+
+        float strokeWidth = effects.x;
+        float glowRadius = effects.y;
+        float softEdge = max(effects.z, 0.5);
+        float gradientType = effects.w;
+
+        uint warpHead = getCommandWarpHead(cmdIdx);
+
+        // Early-out check with group bounds
+        float featherRadius = sqrt(max(featherSigmaSqr, 0.0)) * 3.0;
+        float effectMargin = max(glowRadius, strokeWidth * 0.5) + featherRadius + softEdge + 50.0;
+        if (modifiedPixelPos.x < groupCenter.x - groupHalfSize.x - effectMargin ||
+            modifiedPixelPos.x > groupCenter.x + groupHalfSize.x + effectMargin ||
+            modifiedPixelPos.y < groupCenter.y - groupHalfSize.y - effectMargin ||
+            modifiedPixelPos.y > groupCenter.y + groupHalfSize.y + effectMargin) {
+            return;
+        }
+
+        // Transform to group-local coordinates (centered at origin)
+        vec2 localP = modifiedPixelPos - groupCenter;
+
+        // Apply rigid rotation (stored in dedicated Rotation field).
+        float rotation = getCommandRotation(cmdIdx).x;
+        if (rotation != 0.0) {
+            float s = sin(rotation);
+            float c = cos(rotation);
+            localP = vec2(c * localP.x + s * localP.y, -s * localP.x + c * localP.y);
+        }
+
+        // Apply warp to pixel position ONCE (relative to group center)
+        if (warpHead != 0u) {
+            localP = applyWarpChain(localP, warpHead);
+        }
+
+        vec2 warpedPixelPos = localP + groupCenter;
+
+        // Union all glyphs in the group
+        float d = 1e10;
+        for (uint gi = 0u; gi < glyphCount; gi++) {
+            uint glyphIdx = firstGlyph + gi;
+            float glyphD = evaluateGlyphSdf(glyphIdx, warpedPixelPos);
+            d = min(d, glyphD);  // Union operation
+        }
+
+        vec4 fillAtPixel = computeGradient(fillColor, gradientColor, localP, groupHalfSize, gradientType, gradientParams, stopStart, stopCount);
+        vec4 strokeAtPixel = strokeColor;
+        if (gradientType > 0.5) {
+            strokeAtPixel = computeGradient(strokeColor, gradientColor, localP, groupHalfSize, gradientType, gradientParams, stopStart, stopCount);
+        }
+
+        // === 1. GLOW (outermost layer) ===
+        if (glowRadius > 0.0 && d < glowRadius * 2.0) {
+            // Gaussian-like falloff for soft glow
+            float t = max(d, 0.0) / glowRadius;
+            float glowAlpha = exp(-t * t * 2.0) * maskAlpha;
+            vec4 glowOut = fillAtPixel;
+            glowOut.a *= glowAlpha * 0.6;
+            blendOver(finalColor, glowOut, blendMode);
+        }
+
+        // === 2. STROKE (middle layer) ===
+        if (strokeWidth > 0.0 && strokeColor.a > 0.0) {
+            float strokeD = abs(d) - strokeWidth * 0.5;
+            float strokeAlpha = computeCoverageAlpha(strokeD, softEdge, featherSigmaSqr, featherDirection) * maskAlpha;
+            vec4 stroke = strokeAtPixel;
+            stroke.a *= strokeAlpha;
+            blendOver(finalColor, stroke, blendMode);
+        }
+
+        // === 3. FILL (innermost layer) ===
+        float fillAlpha = computeCoverageAlpha(d, softEdge, featherSigmaSqr, featherDirection) * maskAlpha;
+        if (fillAlpha > 0.0) {
+            vec4 fill = fillAtPixel;
+            fill.a *= fillAlpha;
+            blendOver(finalColor, fill, blendMode);
+        }
+
+        return;
+    }
+
+    SdfEval eval = evaluateSdfEval(cmdIdx, pixelPos);
+    float d = eval.d;
+    uint cmdFlags = flags;
+    vec4 trimParams = getCommandTrimParams(cmdIdx);
+    vec4 dashParams = getCommandDashParams(cmdIdx);
+
+    vec4 fillColor = getCommandColor(cmdIdx);
+    vec4 strokeColor = getCommandStrokeColor(cmdIdx);
+    vec4 effects = getCommandEffects(cmdIdx);
+    vec4 gradientColor = getCommandGradientColor(cmdIdx);
+    vec4 gradientParams = getCommandGradientParams(cmdIdx);
+
+    float strokeWidth = effects.x;
+    float glowRadius = effects.y;
+    float softEdge = max(effects.z, 0.5);
+    float gradientType = effects.w;
+
+    vec2 size = getCommandSize(cmdIdx);
+    vec2 localPos = computeFillLocalPos(cmdIdx, pixelPos);
+    vec4 warpParams = getCommandWarpParams(cmdIdx);
+    uint stopCount = uint(warpParams.x);
+    uint stopStart = uint(gradientParams.w);
+    vec4 fillAtPixel = computeGradient(fillColor, gradientColor, localPos, size, gradientType, gradientParams, stopStart, stopCount);
+
+    // === 1. GLOW (outermost layer) ===
+    if (glowRadius > 0.0 && d < glowRadius * 2.0) {
+        // Gaussian-like falloff for soft glow
+        float t = max(d, 0.0) / glowRadius;
+        float glowAlpha = exp(-t * t * 2.0) * maskAlpha;
+        vec4 glowOut = fillAtPixel;
+        glowOut.a *= glowAlpha * 0.6;
+        blendOver(finalColor, glowOut, blendMode);
+    }
+
+    // === 2. STROKE (middle layer) ===
+    if (strokeWidth > 0.0 && strokeColor.a > 0.0) {
+        float halfW = strokeWidth * 0.5;
+        float strokeD = abs(d) - halfW;
+        TrimDashMask mask = applyTrimDashMask(cmdFlags, trimParams, dashParams, eval, strokeD, halfW);
+        float strokeAlpha = computeCoverageAlpha(mask.d, softEdge, eval.featherSigmaSqr, eval.featherDirection) * mask.alphaMul * maskAlpha;
+        vec4 stroke = strokeColor;
+        stroke.a *= strokeAlpha;
+        blendOver(finalColor, stroke, blendMode);
+    }
+
+    // === 3. FILL (innermost layer) ===
+    float fillD = d;
+    float fillAlphaMul = 1.0;
+    if (shapeType == SHAPE_LINE || shapeType == SHAPE_POLYLINE || shapeType == SHAPE_BEZIER) {
+        float halfW = getCommandParams(cmdIdx).x * 0.5;
+        TrimDashMask mask = applyTrimDashMask(cmdFlags, trimParams, dashParams, eval, fillD, halfW);
+        fillD = mask.d;
+        fillAlphaMul = mask.alphaMul;
+    }
+
+    float fillAlpha = computeCoverageAlpha(fillD, softEdge, eval.featherSigmaSqr, eval.featherDirection) * fillAlphaMul * maskAlpha;
+    if (shapeType == SHAPE_RECT && eval.featherSigmaSqr > 1e-8) {
+        fillAlpha = computeBoxCoverageAlpha(localPos, size, fillD, softEdge, eval.featherSigmaSqr, eval.featherDirection) * fillAlphaMul * maskAlpha;
+    }
+    if (fillAlpha > 0.0) {
+        vec4 fill = fillAtPixel;
+        fill.a *= fillAlpha;
+        blendOver(finalColor, fill, blendMode);
+    }
+}
+
+void main() {
+    ivec2 pixelCoord = ivec2(gl_GlobalInvocationID.xy);
+
+    // Bounds check
+    if (pixelCoord.x >= int(pc.screenWidth) || pixelCoord.y >= int(pc.screenHeight)) {
+        return;
+    }
+
+    vec2 pixelPos = vec2(pixelCoord) + 0.5;
+    vec4 finalColor = vec4(0.0, 0.0, 0.0, 0.0);
+
+    // Calculate which tile this pixel belongs to
+    uint tileX = uint(pixelCoord.x) / 8u;
+    uint tileY = uint(pixelCoord.y) / 8u;
+    uint tileIdx = tileY * pc.tilesX + tileX;
+
+    // Get the range of command indices for this tile
+    uint startOffset = tileOffsets.offsets[tileIdx];
+    uint endOffset = tileOffsets.offsets[tileIdx + 1u];
+
+    // Early out if no commands in this tile
+    if (startOffset >= endOffset) {
+        imageStore(outputImage, pixelCoord, finalColor);
+        return;
+    }
+
+    // Group stack for nested boolean groups
+    SdfEval distStack[MAX_GROUP_DEPTH];
+    bool distValidStack[MAX_GROUP_DEPTH];
+    uint opStack[MAX_GROUP_DEPTH];
+    float smoothStack[MAX_GROUP_DEPTH];
+    vec4 fillStack[MAX_GROUP_DEPTH];
+    vec4 strokeColorStack[MAX_GROUP_DEPTH];
+    float strokeWidthStack[MAX_GROUP_DEPTH];
+    float glowRadiusStack[MAX_GROUP_DEPTH];
+    uint trimDashFlagsStack[MAX_GROUP_DEPTH];
+    vec4 trimParamsStack[MAX_GROUP_DEPTH];
+    vec4 dashParamsStack[MAX_GROUP_DEPTH];
+    int groupDepth = 0;
+
+    // Morph stack for nested morph groups
+    float morphD1Stack[MAX_MORPH_DEPTH];       // First shape's SDF
+    float morphFactorStack[MAX_MORPH_DEPTH];   // Morph blend factor
+    int morphShapeCount[MAX_MORPH_DEPTH];      // How many shapes seen in this morph
+    int morphDepth = 0;
+
+    // Reset global mask stack for this pixel
+    g_maskDepth = 0;
+    g_maskCombinedAlpha = 1.0;
+    int maskUnionSkipRemaining = 0;
+
+    // Boolean accumulation state
+    SdfEval accumulatedEval = makeEval(1e10);
+    bool hasAccumulated = false;
+    vec4 accumulatedFill = vec4(0.0);
+    vec4 accumulatedStrokeColor = vec4(0.0);
+    float accumulatedStrokeWidth = 0.0;
+    float accumulatedGlowRadius = 0.0;
+    uint accumulatedTrimDashFlags = 0u;
+    vec4 accumulatedTrimParams = vec4(0.0);
+    vec4 accumulatedDashParams = vec4(0.0);
+    bool inGroup = false;
+    uint firstCmdInGroup = 0u;
+
+    // Iterate only commands in this tile
+    for (uint ti = startOffset; ti < endOffset; ti++) {
+        uint i = tileIndices.indices[ti];
+        if (i >= pc.commandCount) {
+            continue;
+        }
+        uint shapeType = getCommandType(i);
+
+        if (shapeType == SHAPE_GROUP_BEGIN) {
+            // Starting a new boolean group
+            vec2 boolParams = getCommandBooleanParams(i);
+            uint groupOp = uint(boolParams.x);
+            float groupSmooth = boolParams.y;
+
+            // Push current state onto stack
+            if (groupDepth < MAX_GROUP_DEPTH) {
+                distStack[groupDepth] = accumulatedEval;
+                distValidStack[groupDepth] = hasAccumulated;
+                opStack[groupDepth] = groupOp;
+                smoothStack[groupDepth] = groupSmooth;
+                fillStack[groupDepth] = accumulatedFill;
+                strokeColorStack[groupDepth] = accumulatedStrokeColor;
+                strokeWidthStack[groupDepth] = accumulatedStrokeWidth;
+                glowRadiusStack[groupDepth] = accumulatedGlowRadius;
+                trimDashFlagsStack[groupDepth] = accumulatedTrimDashFlags;
+                trimParamsStack[groupDepth] = accumulatedTrimParams;
+                dashParamsStack[groupDepth] = accumulatedDashParams;
+                groupDepth++;
+            }
+
+            // Reset accumulator for this group
+            accumulatedEval = makeEval(1e10);
+            hasAccumulated = false;
+            accumulatedFill = vec4(0.0);
+            accumulatedStrokeColor = vec4(0.0);
+            accumulatedStrokeWidth = 0.0;
+            accumulatedGlowRadius = 0.0;
+            accumulatedTrimDashFlags = 0u;
+            accumulatedTrimParams = vec4(0.0);
+            accumulatedDashParams = vec4(0.0);
+            inGroup = true;
+            firstCmdInGroup = i + 1u;
+        }
+        else if (shapeType == SHAPE_GROUP_END) {
+            // Ending a boolean group
+            if (groupDepth > 0) {
+                groupDepth--;
+
+                SdfEval groupResult = accumulatedEval;
+                bool groupHas = hasAccumulated;
+                vec4 groupFill = accumulatedFill;
+                vec4 groupStrokeColor = accumulatedStrokeColor;
+                float groupStrokeWidth = accumulatedStrokeWidth;
+                float groupGlowRadius = accumulatedGlowRadius;
+                uint groupTrimDashFlags = accumulatedTrimDashFlags;
+                vec4 groupTrimParams = accumulatedTrimParams;
+                vec4 groupDashParams = accumulatedDashParams;
+
+                float groupOpacity = getCommandColor(i).a;
+                if (groupOpacity < 0.9999) {
+                    groupFill.a *= groupOpacity;
+                    groupStrokeColor.a *= groupOpacity;
+                }
+
+                // Top-level groups render their result at GROUP_END.
+                if (groupDepth == 0) {
+                    if (groupHas) {
+                        renderShapeWithStyleOverride(groupResult, i, pixelPos,
+                            groupFill,
+                            groupStrokeColor, groupStrokeWidth,
+                            groupGlowRadius,
+                            1u, groupTrimDashFlags, groupTrimParams, groupDashParams,
+                            finalColor);
+                    }
+                    accumulatedEval = makeEval(1e10);
+                    hasAccumulated = false;
+                    accumulatedFill = vec4(0.0);
+                    accumulatedStrokeColor = vec4(0.0);
+                    accumulatedStrokeWidth = 0.0;
+                    accumulatedGlowRadius = 0.0;
+                    accumulatedTrimDashFlags = 0u;
+                    accumulatedTrimParams = vec4(0.0);
+                    accumulatedDashParams = vec4(0.0);
+                    inGroup = false;
+                    continue;
+                }
+
+                // Nested groups are operands inside their parent group (do not render here).
+                // Combine this subgroup's result into the parent's accumulated distance using the parent's op.
+                SdfEval parentD = distStack[groupDepth];
+                bool parentHas = distValidStack[groupDepth];
+                vec4 parentFill = fillStack[groupDepth];
+                vec4 parentStrokeColor = strokeColorStack[groupDepth];
+                float parentStrokeWidth = strokeWidthStack[groupDepth];
+                float parentGlowRadius = glowRadiusStack[groupDepth];
+                uint parentTrimDashFlags = trimDashFlagsStack[groupDepth];
+                vec4 parentTrimParams = trimParamsStack[groupDepth];
+                vec4 parentDashParams = dashParamsStack[groupDepth];
+                uint parentOp = opStack[groupDepth - 1];
+                float parentSmooth = smoothStack[groupDepth - 1];
+
+                if (!parentHas) {
+                    accumulatedEval = groupResult;
+                    hasAccumulated = groupHas;
+                    accumulatedFill = groupFill;
+                    accumulatedStrokeColor = groupStrokeColor;
+                    accumulatedStrokeWidth = groupStrokeWidth;
+                    accumulatedGlowRadius = groupGlowRadius;
+                    accumulatedTrimDashFlags = groupTrimDashFlags;
+                    accumulatedTrimParams = groupTrimParams;
+                    accumulatedDashParams = groupDashParams;
+                } else {
+                    if (groupHas) {
+                        float blendT;
+                        bool chooseNext;
+                        accumulatedEval = applyBooleanEvalWithBlend(parentD, groupResult, parentOp, parentSmooth, blendT, chooseNext);
+                        hasAccumulated = true;
+                        accumulatedFill = mix(parentFill, groupFill, blendT);
+                        accumulatedStrokeColor = mix(parentStrokeColor, groupStrokeColor, blendT);
+                        accumulatedStrokeWidth = mix(parentStrokeWidth, groupStrokeWidth, blendT);
+                        accumulatedGlowRadius = mix(parentGlowRadius, groupGlowRadius, blendT);
+                        accumulatedTrimDashFlags = chooseNext ? groupTrimDashFlags : parentTrimDashFlags;
+                        accumulatedTrimParams = chooseNext ? groupTrimParams : parentTrimParams;
+                        accumulatedDashParams = chooseNext ? groupDashParams : parentDashParams;
+                    } else {
+                        accumulatedEval = parentD;
+                        hasAccumulated = true;
+                        accumulatedFill = parentFill;
+                        accumulatedStrokeColor = parentStrokeColor;
+                        accumulatedStrokeWidth = parentStrokeWidth;
+                        accumulatedGlowRadius = parentGlowRadius;
+                        accumulatedTrimDashFlags = parentTrimDashFlags;
+                        accumulatedTrimParams = parentTrimParams;
+                        accumulatedDashParams = parentDashParams;
+                    }
+                }
+
+                inGroup = true;
+            }
+        }
+        else if (shapeType == SHAPE_MORPH_BEGIN) {
+            // Starting a morph group - next two shapes will be blended
+            vec4 params = getCommandParams(i);
+            float morphFactor = params.x;
+
+            if (morphDepth < MAX_MORPH_DEPTH) {
+                morphFactorStack[morphDepth] = morphFactor;
+                morphD1Stack[morphDepth] = 1e10;  // Will be set by first shape
+                morphShapeCount[morphDepth] = 0;
+                morphDepth++;
+            }
+        }
+        else if (shapeType == SHAPE_MORPH_END) {
+            // Ending a morph group - blend the two shapes and render
+            if (morphDepth > 0) {
+                morphDepth--;
+                // The morphed result should have been computed in the regular shape handling
+                // Render using MORPH_END's styling
+                // At this point, accumulatedEval contains the blended SDF (no trim coord).
+                renderShape(accumulatedEval, i, pixelPos, finalColor);
+                accumulatedEval = makeEval(1e10);
+                hasAccumulated = false;
+                accumulatedFill = vec4(0.0);
+            }
+        }
+        else if (shapeType == SHAPE_MASK_PUSH) {
+            // Union masks are encoded as a base MaskPush followed by N companion MaskPush commands.
+            // The companions are data-only and must not push additional stack levels.
+            if (maskUnionSkipRemaining > 0) {
+                maskUnionSkipRemaining--;
+                continue;
+            }
+
+            // Push a new mask onto the global stack
+            if (g_maskDepth < MAX_MASK_DEPTH) {
+                vec4 params = getCommandParams(i);
+                uint maskType = uint(params.x);
+                // NOTE: For rounded-rect masks params.w stores corner radius (not a union count).
+                int unionCount = (maskType == MASK_ROUNDED_RECT) ? 0 : int(params.w + 0.5);
+
+                g_maskCmdStack[g_maskDepth] = i;
+                g_maskUnionStack[g_maskDepth] = unionCount;
+                float levelAlpha = computeMaskLevelAlpha(i, unionCount, pixelPos);
+                g_maskAlphaStack[g_maskDepth] = levelAlpha;
+                g_maskDepth++;
+                g_maskCombinedAlpha *= levelAlpha;
+                maskUnionSkipRemaining = unionCount;
+            }
+            // Skip to next command
+            continue;
+        }
+        else if (shapeType == SHAPE_MASK_POP) {
+            // Pop the top mask from the global stack
+            if (g_maskDepth > 0) {
+                g_maskDepth--;
+                float combinedAlpha = 1.0;
+                for (int level = 0; level < g_maskDepth; level++) {
+                    combinedAlpha *= g_maskAlphaStack[level];
+                }
+                g_maskCombinedAlpha = combinedAlpha;
+            }
+            // Skip to next command
+            continue;
+        }
+        else {
+            // Regular shape
+            uint cmdFlags = getCommandFlags(i);
+            if ((cmdFlags & FLAG_INTERNAL_NO_RENDER) != 0u) {
+                continue;
+            }
+
+            SdfEval eval = evaluateSdfEval(i, pixelPos);
+            float d = eval.d;
+            vec2 boolParams = getCommandBooleanParams(i);
+            uint boolOp = uint(boolParams.x);
+            float smoothness = boolParams.y;
+            vec4 baseFillColor = getCommandColor(i);
+            vec4 effects = getCommandEffects(i);
+            vec4 strokeColor = getCommandStrokeColor(i);
+            float strokeWidth = effects.x;
+            float glowRadius = effects.y;
+            vec4 gradientColor = getCommandGradientColor(i);
+            vec4 gradientParams = getCommandGradientParams(i);
+            float gradientType = effects.w;
+            vec4 warpParams = getCommandWarpParams(i);
+            uint stopCount = uint(warpParams.x);
+            uint stopStart = uint(gradientParams.w);
+            vec2 size = getCommandSize(i);
+            vec2 localPos = computeFillLocalPos(i, pixelPos);
+            vec4 fillColor = computeGradient(baseFillColor, gradientColor, localPos, size, gradientType, gradientParams, stopStart, stopCount);
+            cmdFlags = getCommandFlags(i);
+            uint trimDashFlags = cmdFlags & TRIM_DASH_FLAGS_MASK;
+            vec4 trimParams = getCommandTrimParams(i);
+            vec4 dashParams = getCommandDashParams(i);
+
+            // Check if we're inside a morph group
+            if (morphDepth > 0) {
+                int morphIdx = morphDepth - 1;
+                int shapeNum = morphShapeCount[morphIdx];
+                morphShapeCount[morphIdx]++;
+
+                if (shapeNum == 0) {
+                    // First shape in morph - store its SDF
+                    morphD1Stack[morphIdx] = d;
+                } else if (shapeNum == 1) {
+                    // Second shape in morph - blend with first
+                    float d1 = morphD1Stack[morphIdx];
+                    float morphFactor = morphFactorStack[morphIdx];
+                    accumulatedEval = makeEval(mix(d1, d, morphFactor));
+                    hasAccumulated = true;
+                }
+                // Ignore additional shapes beyond the first two
+            }
+            else if (inGroup) {
+                // Inside a boolean group - accumulate distance
+                if (!hasAccumulated) {
+                    accumulatedEval = eval;
+                    hasAccumulated = true;
+                    accumulatedFill = fillColor;
+                    accumulatedStrokeColor = strokeColor;
+                    accumulatedStrokeWidth = strokeWidth;
+                    accumulatedGlowRadius = glowRadius;
+                    accumulatedTrimDashFlags = trimDashFlags;
+                    accumulatedTrimParams = trimParams;
+                    accumulatedDashParams = dashParams;
+                } else {
+                    // Use the group's op if command has BOOL_NONE, else command's own op
+                    uint groupOp = opStack[groupDepth - 1];
+                    float groupSmooth = smoothStack[groupDepth - 1];
+                    uint op = (boolOp == BOOL_NONE) ? groupOp : boolOp;
+                    float sm = (boolOp == BOOL_NONE) ? groupSmooth : smoothness;
+                    float blendT;
+                    bool chooseNext;
+                    accumulatedEval = applyBooleanEvalWithBlend(accumulatedEval, eval, op, sm, blendT, chooseNext);
+                    accumulatedFill = mix(accumulatedFill, fillColor, blendT);
+                    accumulatedStrokeColor = mix(accumulatedStrokeColor, strokeColor, blendT);
+                    accumulatedStrokeWidth = mix(accumulatedStrokeWidth, strokeWidth, blendT);
+                    accumulatedGlowRadius = mix(accumulatedGlowRadius, glowRadius, blendT);
+                    if (chooseNext) {
+                        accumulatedTrimDashFlags = trimDashFlags;
+                        accumulatedTrimParams = trimParams;
+                        accumulatedDashParams = dashParams;
+                    }
+                }
+            }
+            else if (boolOp != BOOL_NONE) {
+                // Boolean operation outside of groups - accumulate
+                if (!hasAccumulated) {
+                    accumulatedEval = eval;
+                    hasAccumulated = true;
+                    firstCmdInGroup = i;
+                    accumulatedFill = fillColor;
+                    accumulatedStrokeColor = strokeColor;
+                    accumulatedStrokeWidth = strokeWidth;
+                    accumulatedGlowRadius = glowRadius;
+                    accumulatedTrimDashFlags = trimDashFlags;
+                    accumulatedTrimParams = trimParams;
+                    accumulatedDashParams = dashParams;
+                } else {
+                    float blendT;
+                    bool chooseNext;
+                    accumulatedEval = applyBooleanEvalWithBlend(accumulatedEval, eval, boolOp, smoothness, blendT, chooseNext);
+                    accumulatedFill = mix(accumulatedFill, fillColor, blendT);
+                    accumulatedStrokeColor = mix(accumulatedStrokeColor, strokeColor, blendT);
+                    accumulatedStrokeWidth = mix(accumulatedStrokeWidth, strokeWidth, blendT);
+                    accumulatedGlowRadius = mix(accumulatedGlowRadius, glowRadius, blendT);
+                    if (chooseNext) {
+                        accumulatedTrimDashFlags = trimDashFlags;
+                        accumulatedTrimParams = trimParams;
+                        accumulatedDashParams = dashParams;
+                    }
+                }
+            }
+            else {
+                // No boolean operation and not in a group
+                // If we had accumulated shapes, render them first
+                if (hasAccumulated) {
+                    renderShapeWithStyleOverride(accumulatedEval, firstCmdInGroup, pixelPos,
+                        accumulatedFill,
+                        accumulatedStrokeColor, accumulatedStrokeWidth,
+                        accumulatedGlowRadius,
+                        0u, 0u, vec4(0.0), vec4(0.0),
+                        finalColor);
+                    accumulatedEval = makeEval(1e10);
+                    hasAccumulated = false;
+                    accumulatedFill = vec4(0.0);
+                    accumulatedStrokeColor = vec4(0.0);
+                    accumulatedStrokeWidth = 0.0;
+                    accumulatedGlowRadius = 0.0;
+                    accumulatedTrimDashFlags = 0u;
+                    accumulatedTrimParams = vec4(0.0);
+                    accumulatedDashParams = vec4(0.0);
+                }
+                // Render this shape independently
+                renderSingleShape(i, pixelPos, finalColor);
+            }
+        }
+    }
+
+    // If we ended with pending accumulated shapes, render them
+    if (hasAccumulated && groupDepth == 0) {
+        renderShapeWithStyleOverride(accumulatedEval, firstCmdInGroup, pixelPos,
+            accumulatedFill,
+            accumulatedStrokeColor, accumulatedStrokeWidth,
+            accumulatedGlowRadius,
+            0u, 0u, vec4(0.0), vec4(0.0),
+            finalColor);
+    }
+
+    imageStore(outputImage, pixelCoord, finalColor);
+}

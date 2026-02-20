@@ -1,0 +1,75 @@
+{
+  "id": "e5a0e561-fbb4-4638-844d-6ea1762ad166",
+  "name": "Ores",
+  "columns": [
+    {
+      "id": "9fcd1114-9732-4d48-93cf-588aa4b067ce",
+      "name": "Name",
+      "kind": "Text",
+      "typeId": "core.text",
+      "width": 150
+    },
+    {
+      "id": "f18a490c-95a6-4dd1-8d30-2f2b4003bc3b",
+      "name": "Tier",
+      "kind": "Number",
+      "typeId": "core.number",
+      "width": 150
+    },
+    {
+      "id": "3b7a7ee8-8b70-4f61-84f2-47a6f6ce8240",
+      "name": "BaseProductionRate",
+      "kind": "Number",
+      "typeId": "core.number",
+      "width": 150
+    },
+    {
+      "id": "5a329adc-3386-4e90-970c-261bcf76ad06",
+      "name": "UnlockRepLevel",
+      "kind": "Number",
+      "typeId": "core.number",
+      "width": 150
+    },
+    {
+      "id": "5049becd-7e0b-439d-badf-260a32648bda",
+      "name": "MineLevelRequired",
+      "kind": "Number",
+      "typeId": "core.number",
+      "width": 150
+    },
+    {
+      "id": "2d6e57cc-0921-4ed5-8ae1-53c18cb0fb79",
+      "name": "BaseValue",
+      "kind": "Number",
+      "typeId": "core.number",
+      "width": 150
+    },
+    {
+      "id": "977fb213-a505-443d-bafd-a59120d1aa62",
+      "name": "Rarity",
+      "kind": "Select",
+      "typeId": "core.select",
+      "width": 150,
+      "options": [
+        "Common",
+        "Uncommon",
+        "Rare",
+        "Epic",
+        "Legendary"
+      ]
+    }
+  ],
+  "variants": [
+    {
+      "id": 1,
+      "name": "Heroic"
+    },
+    {
+      "id": 2,
+      "name": "Variant 2"
+    }
+  ],
+  "keys": {
+    "primaryKeyColumnId": "9fcd1114-9732-4d48-93cf-588aa4b067ce"
+  }
+}

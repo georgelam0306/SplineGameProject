@@ -1,0 +1,96 @@
+{
+  "id": "ee15c04a-4f25-4b9f-9668-6b54dc3ab835",
+  "name": "Table 9_SplineGameLevel",
+  "columns": [
+    {
+      "id": "_parentRowId",
+      "name": "_parentRowId",
+      "kind": "Text",
+      "typeId": "core.text",
+      "width": 120,
+      "hidden": true
+    },
+    {
+      "id": "entry_type",
+      "name": "EntryType",
+      "kind": "Select",
+      "typeId": "core.select",
+      "width": 130,
+      "options": [
+        "SplinePoint",
+        "Enemy",
+        "Obstacle",
+        "Trigger"
+      ]
+    },
+    {
+      "id": "order",
+      "name": "Order",
+      "kind": "Number",
+      "typeId": "core.number",
+      "width": 90,
+      "exportType": "int"
+    },
+    {
+      "id": "param_t",
+      "name": "ParamT",
+      "kind": "Number",
+      "typeId": "core.number",
+      "width": 90
+    },
+    {
+      "id": "position",
+      "name": "Position",
+      "kind": "Vec2",
+      "typeId": "core.vec2.fixed64",
+      "width": 150
+    },
+    {
+      "id": "tangent_in",
+      "name": "TangentIn",
+      "kind": "Vec2",
+      "typeId": "core.vec2.fixed64",
+      "width": 150
+    },
+    {
+      "id": "tangent_out",
+      "name": "TangentOut",
+      "kind": "Vec2",
+      "typeId": "core.vec2.fixed64",
+      "width": 150
+    },
+    {
+      "id": "enemy_type",
+      "name": "EnemyType",
+      "kind": "Text",
+      "typeId": "core.text",
+      "width": 140
+    },
+    {
+      "id": "obstacle_type",
+      "name": "ObstacleType",
+      "kind": "Text",
+      "typeId": "core.text",
+      "width": 140
+    },
+    {
+      "id": "trigger_type",
+      "name": "TriggerType",
+      "kind": "Text",
+      "typeId": "core.text",
+      "width": 140
+    },
+    {
+      "id": "data_json",
+      "name": "DataJson",
+      "kind": "Text",
+      "typeId": "core.text",
+      "width": 260
+    }
+  ],
+  "parentTableId": "76b483c2-2680-4791-a052-0f7dbf5fb184",
+  "parentRowColumnId": "_parentRowId",
+  "pluginTableTypeId": "splinegame.level.table",
+  "pluginOwnerColumnTypeId": "splinegame.level",
+  "pluginSchemaLocked": true
+}

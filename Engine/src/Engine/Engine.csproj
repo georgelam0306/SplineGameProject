@@ -1,0 +1,51 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <AssemblyName>DerpTech.Engine</AssemblyName>
+    <RootNamespace>DerpLib</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Pure.DI" Version="2.*" />
+    <PackageReference Include="Serilog" Version="4.*" />
+    <PackageReference Include="Serilog.Sinks.Console" Version="6.*" />
+    <PackageReference Include="Silk.NET.Vulkan" Version="2.*" />
+    <PackageReference Include="Silk.NET.Vulkan.Extensions.KHR" Version="2.*" />
+    <PackageReference Include="Silk.NET.Windowing" Version="2.*" />
+    <PackageReference Include="Silk.NET.Input" Version="2.*" />
+    <PackageReference Include="Silk.NET.GLFW" Version="2.*" />
+    <PackageReference Include="Silk.NET.SDL" Version="2.*" />
+    <PackageReference Include="NLayer" Version="1.*" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Shared\Vfs\Vfs.csproj" />
+    <ProjectReference Include="..\..\..\Shared\AssetPipeline\Abstractions\AssetPipeline.Abstractions.csproj" />
+    <ProjectReference Include="..\..\..\Shared\AssetPipeline\Runtime\AssetPipeline.Runtime.csproj" />
+    <ProjectReference Include="..\..\..\Shared\AssetPipeline\Storage\AssetPipeline.Storage.csproj" />
+    <ProjectReference Include="..\..\..\Shared\AssetPipeline\Generator\AssetPipeline.Generator.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\..\..\Shared\GpuStruct\Annotations\GpuStruct.Annotations.csproj" />
+    <ProjectReference Include="..\..\..\Shared\GpuStruct\Generator\GpuStruct.Generator.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\..\..\Shared\Profiling\Annotations\Profiling.Annotations.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Profiling\Runtime\Profiling.Runtime.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Profiling\Generator\Profiling.Generator.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\..\..\Shared\FlameProfiler\FlameProfiler.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Core\Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="..\..\Content\db\**\*.*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <TargetPath>data\db\%(RecursiveDir)%(Filename)%(Extension)</TargetPath>
+    </Content>
+  </ItemGroup>
+
+  <PropertyGroup>
+    <DefineConstants>$(DefineConstants);FLAME_PROFILER</DefineConstants>
+  </PropertyGroup>
+
+</Project>

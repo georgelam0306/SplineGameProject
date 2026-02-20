@@ -1,0 +1,26 @@
+{
+  "id": "76b483c2-2680-4791-a052-0f7dbf5fb184",
+  "name": "Levels",
+  "columns": [
+    {
+      "id": "70f45173-292c-4879-ae05-5563a4e729c2",
+      "name": "Level",
+      "kind": "Number",
+      "typeId": "core.number",
+      "width": 150,
+      "formula": "thisRowIndex",
+      "exportType": "int"
+    },
+    {
+      "id": "d79c55f2-0884-44fd-adc1-c55ed7f68e31",
+      "name": "SplineGameLevel",
+      "kind": "Subtable",
+      "typeId": "splinegame.level",
+      "width": 150,
+      "subtableId": "19a03b45-3a42-4e8c-bf2e-2d06ae123d8f"
+    }
+  ],
+  "keys": {
+    "primaryKeyColumnId": "70f45173-292c-4879-ae05-5563a4e729c2"
+  }
+}

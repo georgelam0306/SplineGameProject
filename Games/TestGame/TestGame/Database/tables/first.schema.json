@@ -1,0 +1,33 @@
+{
+  "id": "3906da20-ac15-4ea9-99ba-070f10f772ef",
+  "name": "First",
+  "columns": [
+    {
+      "id": "c9a4cd6d-02f3-4a3d-8e9e-f91164ed28cb",
+      "name": "RowId",
+      "kind": "Number",
+      "typeId": "core.number",
+      "width": 90
+    },
+    {
+      "id": "b45a28b6-3cbd-4861-bf87-2389d0e8c6a3",
+      "name": "Name",
+      "kind": "Text",
+      "typeId": "core.text",
+      "width": 150
+    }
+  ],
+  "variants": [
+    {
+      "id": 1,
+      "name": "Heroic"
+    },
+    {
+      "id": 2,
+      "name": "Variant 2"
+    }
+  ],
+  "keys": {
+    "primaryKeyColumnId": "c9a4cd6d-02f3-4a3d-8e9e-f91164ed28cb"
+  }
+}

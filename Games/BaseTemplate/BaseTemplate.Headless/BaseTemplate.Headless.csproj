@@ -1,0 +1,45 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
+
+    <!-- NativeAOT Configuration -->
+    <PublishAot Condition="'$(NativeAot)' == 'true'">true</PublishAot>
+    <SelfContained Condition="'$(NativeAot)' == 'true'">true</SelfContained>
+    <EnableAotAnalyzer Condition="'$(NativeAot)' == 'true'">true</EnableAotAnalyzer>
+    <TrimMode Condition="'$(NativeAot)' == 'true'">full</TrimMode>
+    <InvariantGlobalization Condition="'$(NativeAot)' == 'true'">false</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Pure.DI for headless composition (isolated from main game) -->
+    <PackageReference Include="Pure.DI" Version="2.*">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Serilog" Version="4.*" />
+    <PackageReference Include="Serilog.Sinks.Console" Version="6.*" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Reference main library for simulation types -->
+    <ProjectReference Include="..\BaseTemplate\BaseTemplate.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="FixedMath" />
+  </ItemGroup>
+
+  <!-- GameDocDatabase binary generation for Release builds -->
+  <PropertyGroup>
+    <GameName>$([System.String]::Copy('$(MSBuildProjectName)').Replace('.Headless', ''))</GameName>
+    <GameDataDir>$(MSBuildProjectDirectory)\..\$(GameName).GameData\Data</GameDataDir>
+    <GameDataCliProject>$(MSBuildProjectDirectory)\..\$(GameName).GameData.Cli\$(GameName).GameData.Cli.csproj</GameDataCliProject>
+  </PropertyGroup>
+  <Import Project="..\..\..\Shared\GameDocDatabase\Runtime\build\GameDocDatabase.Runtime.targets" />
+</Project>

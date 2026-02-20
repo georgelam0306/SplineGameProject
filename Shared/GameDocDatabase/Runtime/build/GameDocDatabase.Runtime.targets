@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <!--
+    MSBuild targets for GameDocDatabase binary file generation.
+
+    Usage: Add this to your project:
+      <Import Project="..\GameDocDatabase.Runtime\build\GameDocDatabase.Runtime.targets" />
+
+    Properties to set in your project:
+      <GameDataDir>path/to/json/files</GameDataDir>
+      <GameDataBinaryName>GameData.bin</GameDataBinaryName>
+  -->
+
+  <PropertyGroup>
+    <GameDataDir Condition="'$(GameDataDir)' == ''">$(MSBuildProjectDirectory)\GameData\Data</GameDataDir>
+    <GameDataBinaryName Condition="'$(GameDataBinaryName)' == ''">GameData.bin</GameDataBinaryName>
+    <!-- Default: look for CLI project next to the game project (e.g., ../GameName.GameData.Cli/) -->
+    <GameDataCliProject Condition="'$(GameDataCliProject)' == ''">$(MSBuildProjectDirectory)\..\$(MSBuildProjectName).GameData.Cli\$(MSBuildProjectName).GameData.Cli.csproj</GameDataCliProject>
+  </PropertyGroup>
+
+  <!-- Build binary from JSON on Release builds -->
+  <Target Name="BuildGameDataBinary"
+          AfterTargets="Build"
+          Condition="'$(Configuration)' == 'Release' OR '$(Configuration)' == 'SteamRelease'">
+
+    <Message Text="Building GameData binary from: $(GameDataDir)" Importance="high" />
+    <Message Text="Output: $(OutDir)$(GameDataBinaryName)" Importance="high" />
+
+    <Exec Command="dotnet run --project &quot;$(GameDataCliProject)&quot; --configuration Release -- build &quot;$(GameDataDir)&quot; &quot;$(OutDir)$(GameDataBinaryName)&quot;"
+          ConsoleToMSBuild="true"
+          StandardOutputImportance="normal" />
+  </Target>
+
+  <!-- Also build binary during publish to the publish directory -->
+  <Target Name="BuildGameDataBinaryOnPublish"
+          AfterTargets="Publish"
+          Condition="'$(Configuration)' == 'Release' OR '$(Configuration)' == 'SteamRelease'">
+
+    <Message Text="Building GameData binary for publish from: $(GameDataDir)" Importance="high" />
+    <Message Text="Output: $(PublishDir)$(GameDataBinaryName)" Importance="high" />
+
+    <Exec Command="dotnet run --project &quot;$(GameDataCliProject)&quot; --configuration Release -- build &quot;$(GameDataDir)&quot; &quot;$(PublishDir)$(GameDataBinaryName)&quot;"
+          ConsoleToMSBuild="true"
+          StandardOutputImportance="normal" />
+  </Target>
+
+  <!-- Clean the binary file -->
+  <Target Name="CleanGameDataBinary" AfterTargets="Clean">
+    <Delete Files="$(OutDir)$(GameDataBinaryName)" ContinueOnError="true" />
+  </Target>
+
+</Project>

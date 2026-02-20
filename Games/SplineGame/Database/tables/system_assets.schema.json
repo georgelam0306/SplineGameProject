@@ -1,0 +1,84 @@
+{
+  "id": "d1aa3799-2e64-4528-a592-07b0f4df333d",
+  "name": "assets",
+  "columns": [
+    {
+      "id": "asset_id",
+      "name": "AssetId",
+      "kind": "Number",
+      "typeId": "core.number",
+      "width": 100,
+      "exportType": "int"
+    },
+    {
+      "id": "name",
+      "name": "Name",
+      "kind": "Text",
+      "typeId": "core.text",
+      "width": 220
+    },
+    {
+      "id": "relative_path",
+      "name": "RelativePath",
+      "kind": "Text",
+      "typeId": "core.text",
+      "width": 320
+    },
+    {
+      "id": "kind",
+      "name": "Kind",
+      "kind": "Select",
+      "typeId": "core.select",
+      "width": 130,
+      "options": [
+        "Texture",
+        "Model",
+        "Audio",
+        "Material",
+        "Ui",
+        "Other"
+      ]
+    },
+    {
+      "id": "extension",
+      "name": "Extension",
+      "kind": "Text",
+      "typeId": "core.text",
+      "width": 90
+    },
+    {
+      "id": "size_bytes",
+      "name": "SizeBytes",
+      "kind": "Number",
+      "typeId": "core.number",
+      "width": 120
+    },
+    {
+      "id": "content_hash",
+      "name": "ContentHash",
+      "kind": "Text",
+      "typeId": "core.text",
+      "width": 280
+    },
+    {
+      "id": "missing",
+      "name": "Missing",
+      "kind": "Checkbox",
+      "typeId": "core.checkbox",
+      "width": 90
+    },
+    {
+      "id": "last_seen_utc",
+      "name": "LastSeenUtc",
+      "kind": "Text",
+      "typeId": "core.text",
+      "width": 200
+    }
+  ],
+  "keys": {
+    "primaryKeyColumnId": "asset_id"
+  },
+  "systemKey": "system.assets",
+  "systemSchemaLocked": true,
+  "systemDataLocked": true
+}

@@ -1,0 +1,8 @@
+Name,HP,Armor,FireResist,VenomResist,Damage,AttackSpeed,Range,MoveSpeed,WatchRange,NoisePerShot,CostGold,CostWood,CostIron,CostOil,CostFood,Workers,BuildTime,MaintenanceGold,MaintenanceOil,VetDamage,VetAttackSpeed,VetRange,ExpRequired
+Ranger,60,5,0,0,10,1,6,4,8,1,120,2,0,0,0,1,27,1,0,12,2,6.5,60
+Soldier,120,40,50,50,16,2,5,2.4,6,3,240,0,2,0,1,1,30,3,0,26,2.5,5.5,90
+Sniper,150,5,0,0,100,0.45,8,1.8,9,10,300,2,2,0,1,1,33,5,0,110,0.91,8,140
+Lucifer,500,25,100,65,24,2,3.5,1.8,6,10,600,0,0,15,2,1,36,12,1,,,,
+Thanatos,250,25,0,0,70,0.33,10,1.8,12,500,600,0,10,20,2,1,36,16,1,,,,
+Titan,800,40,0,0,32,5,9,3,0,0,2000,0,40,40,2,1,45,40,2,,,,
+Mutant,2000,25,50,50,30,2,2,6,0,0,5000,0,20,60,20,1,41,80,5,,,,

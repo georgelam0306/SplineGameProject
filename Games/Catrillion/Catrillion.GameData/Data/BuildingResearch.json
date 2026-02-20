@@ -1,0 +1,158 @@
+[
+  {
+    "Id": 0,
+    "Name": "WoodWorkshop_Cottage",
+    "BuildingTypeId": 27,
+    "ResearchItemId": 0
+  },
+  {
+    "Id": 1,
+    "Name": "WoodWorkshop_Farm",
+    "BuildingTypeId": 27,
+    "ResearchItemId": 1
+  },
+  {
+    "Id": 2,
+    "Name": "WoodWorkshop_StoneWorkshop",
+    "BuildingTypeId": 27,
+    "ResearchItemId": 2
+  },
+  {
+    "Id": 3,
+    "Name": "WoodWorkshop_Market",
+    "BuildingTypeId": 27,
+    "ResearchItemId": 3
+  },
+  {
+    "Id": 4,
+    "Name": "WoodWorkshop_LookoutTower",
+    "BuildingTypeId": 27,
+    "ResearchItemId": 4
+  },
+  {
+    "Id": 5,
+    "Name": "WoodWorkshop_GreatBallista",
+    "BuildingTypeId": 27,
+    "ResearchItemId": 5
+  },
+  {
+    "Id": 6,
+    "Name": "WoodWorkshop_Sniper",
+    "BuildingTypeId": 27,
+    "ResearchItemId": 6
+  },
+  {
+    "Id": 7,
+    "Name": "StoneWorkshop_StoneHouse",
+    "BuildingTypeId": 28,
+    "ResearchItemId": 7
+  },
+  {
+    "Id": 8,
+    "Name": "StoneWorkshop_PowerPlant",
+    "BuildingTypeId": 28,
+    "ResearchItemId": 8
+  },
+  {
+    "Id": 9,
+    "Name": "StoneWorkshop_Foundry",
+    "BuildingTypeId": 28,
+    "ResearchItemId": 9
+  },
+  {
+    "Id": 10,
+    "Name": "StoneWorkshop_Bank",
+    "BuildingTypeId": 28,
+    "ResearchItemId": 10
+  },
+  {
+    "Id": 11,
+    "Name": "StoneWorkshop_StoneWall",
+    "BuildingTypeId": 28,
+    "ResearchItemId": 11
+  },
+  {
+    "Id": 12,
+    "Name": "StoneWorkshop_StoneGate",
+    "BuildingTypeId": 28,
+    "ResearchItemId": 12
+  },
+  {
+    "Id": 13,
+    "Name": "StoneWorkshop_StoneTower",
+    "BuildingTypeId": 28,
+    "ResearchItemId": 13
+  },
+  {
+    "Id": 14,
+    "Name": "StoneWorkshop_ShockingTower",
+    "BuildingTypeId": 28,
+    "ResearchItemId": 14
+  },
+  {
+    "Id": 15,
+    "Name": "Foundry_AdvancedFarm",
+    "BuildingTypeId": 29,
+    "ResearchItemId": 15
+  },
+  {
+    "Id": 16,
+    "Name": "Foundry_AdvancedQuarry",
+    "BuildingTypeId": 29,
+    "ResearchItemId": 16
+  },
+  {
+    "Id": 17,
+    "Name": "Foundry_AdvancedMill",
+    "BuildingTypeId": 29,
+    "ResearchItemId": 17
+  },
+  {
+    "Id": 18,
+    "Name": "Foundry_OilPlatform",
+    "BuildingTypeId": 29,
+    "ResearchItemId": 18
+  },
+  {
+    "Id": 19,
+    "Name": "Foundry_EngineeringCenter",
+    "BuildingTypeId": 29,
+    "ResearchItemId": 19
+  },
+  {
+    "Id": 20,
+    "Name": "Foundry_RadarTower",
+    "BuildingTypeId": 29,
+    "ResearchItemId": 20
+  },
+  {
+    "Id": 21,
+    "Name": "Foundry_Executor",
+    "BuildingTypeId": 29,
+    "ResearchItemId": 21
+  },
+  {
+    "Id": 22,
+    "Name": "Foundry_Lucifer",
+    "BuildingTypeId": 29,
+    "ResearchItemId": 22
+  },
+  {
+    "Id": 23,
+    "Name": "Foundry_Thanatos",
+    "BuildingTypeId": 29,
+    "ResearchItemId": 23
+  },
+  {
+    "Id": 24,
+    "Name": "Foundry_Titan",
+    "BuildingTypeId": 29,
+    "ResearchItemId": 24
+  },
+  {
+    "Id": 25,
+    "Name": "Foundry_Mutant",
+    "BuildingTypeId": 29,
+    "ResearchItemId": 25
+  }
+]

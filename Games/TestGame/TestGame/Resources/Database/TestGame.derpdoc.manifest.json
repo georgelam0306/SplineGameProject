@@ -1,0 +1,11 @@
+{
+  "Namespace": "DerpDocDatabase",
+  "BinaryPath": "/Users/georgelam/wkspaces/derp-doc/Games/TestGame/TestGame/Resources/Database/TestGame.derpdoc",
+  "Tables": [
+    {
+      "Name": "Weapons",
+      "RowCount": 20,
+      "RecordSize": 88
+    }
+  ]
+}

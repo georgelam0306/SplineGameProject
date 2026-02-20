@@ -1,0 +1,52 @@
+{
+  "id": "916628d7-a781-4548-9494-6492ba347453",
+  "name": "Player",
+  "columns": [
+    {
+      "id": "id",
+      "name": "Id",
+      "kind": "Id",
+      "typeId": "core.id",
+      "width": 180,
+      "inherited": true
+    },
+    {
+      "id": "name",
+      "name": "Name",
+      "kind": "Text",
+      "typeId": "core.text",
+      "width": 220,
+      "inherited": true
+    },
+    {
+      "id": "ui_asset",
+      "name": "UiAsset",
+      "kind": "UiAsset",
+      "typeId": "core.ui_asset",
+      "width": 210,
+      "inherited": true
+    },
+    {
+      "id": "scale",
+      "name": "Scale",
+      "kind": "Number",
+      "typeId": "core.number",
+      "width": 90,
+      "inherited": true
+    },
+    {
+      "id": "57c02abe-ad91-4124-9915-fa4f7fcb052e",
+      "name": "MoreData",
+      "kind": "Number",
+      "typeId": "core.number",
+      "width": 150
+    }
+  ],
+  "export": {
+    "enabled": true
+  },
+  "keys": {
+    "primaryKeyColumnId": "id"
+  },
+  "inheritanceSourceTableId": "a9df14bf-4d7b-4656-89b5-cdaf2d336ee0"
+}

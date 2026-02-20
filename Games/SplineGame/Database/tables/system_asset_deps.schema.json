@@ -1,0 +1,32 @@
+{
+  "id": "6bc8c8fe-6131-48a4-bfcb-8ed69d0dbf8d",
+  "name": "asset_deps",
+  "columns": [
+    {
+      "id": "asset_id",
+      "name": "AssetId",
+      "kind": "Number",
+      "typeId": "core.number",
+      "width": 100,
+      "exportType": "int"
+    },
+    {
+      "id": "depends_on_asset_id",
+      "name": "DependsOnAssetId",
+      "kind": "Number",
+      "typeId": "core.number",
+      "width": 150,
+      "exportType": "int"
+    },
+    {
+      "id": "reason",
+      "name": "Reason",
+      "kind": "Text",
+      "typeId": "core.text",
+      "width": 220
+    }
+  ],
+  "systemKey": "system.asset_deps",
+  "systemSchemaLocked": true,
+  "systemDataLocked": true
+}

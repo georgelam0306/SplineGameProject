@@ -1,0 +1,156 @@
+{
+  "id": "c18d55bb-e7ec-4beb-98ed-7ebb8f2e4ab4",
+  "name": "models",
+  "columns": [
+    {
+      "id": "asset_id",
+      "name": "AssetId",
+      "kind": "Number",
+      "typeId": "core.number",
+      "width": 100,
+      "projected": true,
+      "exportType": "int"
+    },
+    {
+      "id": "name",
+      "name": "Name",
+      "kind": "Text",
+      "typeId": "core.text",
+      "width": 220,
+      "projected": true
+    },
+    {
+      "id": "preview",
+      "name": "Preview",
+      "kind": "MeshAsset",
+      "typeId": "core.mesh_asset",
+      "width": 180,
+      "projected": true
+    },
+    {
+      "id": "relative_path",
+      "name": "RelativePath",
+      "kind": "Text",
+      "typeId": "core.text",
+      "width": 320,
+      "projected": true
+    },
+    {
+      "id": "kind",
+      "name": "Kind",
+      "kind": "Select",
+      "typeId": "core.select",
+      "width": 130,
+      "options": [
+        "Texture",
+        "Model",
+        "Audio",
+        "Material",
+        "Ui",
+        "Other"
+      ],
+      "projected": true
+    },
+    {
+      "id": "extension",
+      "name": "Extension",
+      "kind": "Text",
+      "typeId": "core.text",
+      "width": 90,
+      "projected": true
+    },
+    {
+      "id": "size_bytes",
+      "name": "SizeBytes",
+      "kind": "Number",
+      "typeId": "core.number",
+      "width": 120,
+      "projected": true
+    },
+    {
+      "id": "content_hash",
+      "name": "ContentHash",
+      "kind": "Text",
+      "typeId": "core.text",
+      "width": 280,
+      "projected": true
+    },
+    {
+      "id": "missing",
+      "name": "Missing",
+      "kind": "Checkbox",
+      "typeId": "core.checkbox",
+      "width": 90,
+      "projected": true
+    },
+    {
+      "id": "last_seen_utc",
+      "name": "LastSeenUtc",
+      "kind": "Text",
+      "typeId": "core.text",
+      "width": 200,
+      "projected": true
+    }
+  ],
+  "derived": {
+    "baseTableId": "d1aa3799-2e64-4528-a592-07b0f4df333d",
+    "steps": [],
+    "projections": [
+      {
+        "sourceTableId": "d1aa3799-2e64-4528-a592-07b0f4df333d",
+        "sourceColumnId": "asset_id",
+        "outputColumnId": "asset_id"
+      },
+      {
+        "sourceTableId": "d1aa3799-2e64-4528-a592-07b0f4df333d",
+        "sourceColumnId": "name",
+        "outputColumnId": "name"
+      },
+      {
+        "sourceTableId": "d1aa3799-2e64-4528-a592-07b0f4df333d",
+        "sourceColumnId": "relative_path",
+        "outputColumnId": "preview",
+        "renameAlias": "Preview"
+      },
+      {
+        "sourceTableId": "d1aa3799-2e64-4528-a592-07b0f4df333d",
+        "sourceColumnId": "relative_path",
+        "outputColumnId": "relative_path"
+      },
+      {
+        "sourceTableId": "d1aa3799-2e64-4528-a592-07b0f4df333d",
+        "sourceColumnId": "kind",
+        "outputColumnId": "kind"
+      },
+      {
+        "sourceTableId": "d1aa3799-2e64-4528-a592-07b0f4df333d",
+        "sourceColumnId": "extension",
+        "outputColumnId": "extension"
+      },
+      {
+        "sourceTableId": "d1aa3799-2e64-4528-a592-07b0f4df333d",
+        "sourceColumnId": "size_bytes",
+        "outputColumnId": "size_bytes"
+      },
+      {
+        "sourceTableId": "d1aa3799-2e64-4528-a592-07b0f4df333d",
+        "sourceColumnId": "content_hash",
+        "outputColumnId": "content_hash"
+      },
+      {
+        "sourceTableId": "d1aa3799-2e64-4528-a592-07b0f4df333d",
+        "sourceColumnId": "missing",
+        "outputColumnId": "missing"
+      },
+      {
+        "sourceTableId": "d1aa3799-2e64-4528-a592-07b0f4df333d",
+        "sourceColumnId": "last_seen_utc",
+        "outputColumnId": "last_seen_utc"
+      }
+    ],
+    "filterExpression": "thisRow.Kind == \u0022Model\u0022"
+  },
+  "systemKey": "system.models",
+  "systemSchemaLocked": true,
+  "systemDataLocked": true
+}

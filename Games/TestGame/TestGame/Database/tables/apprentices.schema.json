@@ -1,0 +1,15 @@
+{
+  "id": "d51c9228-ae44-4b86-8610-2a49cefff249",
+  "name": "Apprentices",
+  "columns": [],
+  "variants": [
+    {
+      "id": 1,
+      "name": "Heroic"
+    },
+    {
+      "id": 2,
+      "name": "Variant 2"
+    }
+  ]
+}

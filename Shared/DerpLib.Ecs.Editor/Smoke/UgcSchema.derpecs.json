@@ -1,0 +1,73 @@
+{
+  "namespace": "DerpLib.Ecs.Editor.Smoke",
+  "enums": [
+    {
+      "name": "UgcState",
+      "underlyingType": "int",
+      "values": [
+        { "name": "Idle", "value": 0 },
+        { "name": "Aggro", "value": 1 },
+        { "name": "Dead", "value": 2 }
+      ]
+    }
+  ],
+  "components": [
+    {
+      "name": "UgcStats",
+      "fields": [
+        { "name": "Hp", "type": "int", "property": true, "displayName": "HP", "group": "UGC", "order": 1, "min": 0, "max": 999, "step": 1 },
+        { "name": "Speed", "type": "float", "property": true, "group": "UGC", "order": 2, "min": 0, "max": 100, "step": 0.5, "flags": "Animated" },
+        { "name": "State", "type": "UgcState", "property": true, "group": "UGC", "order": 3 },
+        { "name": "Tint", "type": "Color32", "property": true, "group": "UGC", "order": 4 },
+        { "name": "Waypoints", "type": "ListHandle<int>", "property": false, "editorResizable": true },
+        { "name": "Active", "type": "bool", "property": false },
+        { "name": "Offset", "type": "Vector2", "property": false },
+        { "name": "SimSpeed", "type": "Fixed64", "property": false },
+        { "name": "SimPos", "type": "Fixed64Vec2", "property": false },
+        { "name": "Tag", "type": "StringHandle", "property": false },
+        { "name": "Speeds", "type": "ListHandle<float>", "property": false, "editorResizable": true },
+        { "name": "Flags", "type": "ListHandle<bool>", "property": false, "editorResizable": true },
+        { "name": "Points", "type": "ListHandle<Vector2>", "property": false, "editorResizable": true },
+        { "name": "WaypointsCopy", "type": "ListHandle<int>", "property": false, "editorResizable": true }
+      ]
+    }
+  ],
+  "worlds": [
+    {
+      "name": "DemoWorld",
+      "sealed": true,
+      "archetypes": [
+        {
+          "kind": "DemoKind",
+          "capacity": 1,
+          "components": [ "DemoComponent", "UgcStats" ],
+          "spatial": { "position": "Demo.SimPos", "cellSize": 16, "gridSize": 8, "originX": 0, "originY": 0 },
+          "queries": [
+            { "kind": "radius", "position": "Demo.SimPos", "maxResults": 8 },
+            { "kind": "aabb", "position": "Demo.SimPos", "maxResults": 8 }
+          ],
+          "entities": [
+            {
+              "UgcStats": {
+                "Hp": 7,
+                "Speed": 2.5,
+                "State": "Aggro",
+                "Tint": [ 1, 2, 3, 255 ],
+                "Waypoints": [ 1, 2, 3, 4 ],
+                "Active": true,
+                "Offset": [ 5.0, -3.0 ],
+                "SimSpeed": 1.5,
+                "SimPos": [ 100.0, 200.0 ],
+                "Tag": "hero",
+                "Speeds": [ 1.0, 2.5, 3.0 ],
+                "Flags": [ true, false, true ],
+                "Points": [ [ 1.0, 2.0 ], [ 3.0, 4.0 ] ],
+                "WaypointsCopy": [ 1, 2, 3, 4 ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="LiteNetLib" Version="1.2.0" />
+    <PackageReference Include="Microsoft.Orleans.Server" Version="9.0.0" />
+    <PackageReference Include="Microsoft.Orleans.Serialization.SystemTextJson" Version="9.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\MatchmakingContracts\MatchmakingContracts.csproj" />
+  </ItemGroup>
+
+</Project>
+

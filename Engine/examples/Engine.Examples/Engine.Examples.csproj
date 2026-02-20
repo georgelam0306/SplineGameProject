@@ -1,0 +1,80 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <AssemblyName>DerpTech.Engine.Examples</AssemblyName>
+    <RootNamespace>DerpLib.Examples</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Engine\Engine.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="Data\**\*.*" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Textures\**\*.*" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Fonts\**\*.*" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Models\**\*.*" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ExampleFontSources Include="Fonts/**/*.ttf;Fonts/**/*.otf" />
+    <ExampleFontOutputs Include="@(ExampleFontSources->'$(TargetDir)data/db/fonts/%(Filename).font')" />
+
+    <ExampleTextureSources Include="Textures/**/*.png;Textures/**/*.jpg;Textures/**/*.jpeg;Textures/**/*.bmp;Textures/**/*.tga" />
+    <ExampleTextureOutputs Include="@(ExampleTextureSources->'$(TargetDir)data/db/textures/%(RecursiveDir)%(Filename)%(Extension).texture')" />
+
+    <ExampleModelSources Include="Models/**/*.obj;Models/**/*.fbx;Models/**/*.gltf;Models/**/*.glb;Models/**/*.dae;Models/**/*.3ds" />
+    <ExampleModelOutputs Include="@(ExampleModelSources->'$(TargetDir)data/db/meshes/%(RecursiveDir)%(Filename)%(Extension).mesh')" />
+  </ItemGroup>
+
+  <Target Name="BuildExampleFontDatabase"
+          BeforeTargets="Build"
+          Inputs="@(ExampleFontSources)"
+          Outputs="@(ExampleFontOutputs)"
+          Condition="'@(ExampleFontSources)' != ''">
+    <PropertyGroup>
+      <_ExampleFontsSourceDir>$(MSBuildProjectDirectory)/Fonts</_ExampleFontsSourceDir>
+      <_ExampleAssetsOutputDir>$(TargetDir)data</_ExampleAssetsOutputDir>
+      <_EngineBuildProject>$(MSBuildProjectDirectory)/../../src/Engine.Build/Engine.Build.csproj</_EngineBuildProject>
+    </PropertyGroup>
+
+    <Message Importance="High" Text="Building example font database into $(_ExampleAssetsOutputDir)..." />
+    <Exec Command="dotnet run --project &quot;$(_EngineBuildProject)&quot; -- &quot;$(_ExampleFontsSourceDir)&quot; &quot;$(_ExampleAssetsOutputDir)&quot;" />
+  </Target>
+
+  <Target Name="BuildExampleTextureDatabase"
+          BeforeTargets="Build"
+          Inputs="@(ExampleTextureSources)"
+          Outputs="@(ExampleTextureOutputs)"
+          Condition="'@(ExampleTextureSources)' != ''">
+    <PropertyGroup>
+      <_ExampleTexturesSourceDir>$(MSBuildProjectDirectory)/Textures</_ExampleTexturesSourceDir>
+      <_ExampleAssetsOutputDir>$(TargetDir)data</_ExampleAssetsOutputDir>
+      <_EngineBuildProject>$(MSBuildProjectDirectory)/../../src/Engine.Build/Engine.Build.csproj</_EngineBuildProject>
+    </PropertyGroup>
+
+    <Message Importance="High" Text="Building example texture database into $(_ExampleAssetsOutputDir)..." />
+    <Exec Command="dotnet run --project &quot;$(_EngineBuildProject)&quot; -- &quot;$(_ExampleTexturesSourceDir)&quot; &quot;$(_ExampleAssetsOutputDir)&quot;" />
+  </Target>
+
+  <Target Name="BuildExampleModelDatabase"
+          BeforeTargets="Build"
+          Inputs="@(ExampleModelSources)"
+          Outputs="@(ExampleModelOutputs)"
+          Condition="'@(ExampleModelSources)' != ''">
+    <PropertyGroup>
+      <_ExampleModelsSourceDir>$(MSBuildProjectDirectory)/Models</_ExampleModelsSourceDir>
+      <_ExampleAssetsOutputDir>$(TargetDir)data</_ExampleAssetsOutputDir>
+      <_EngineBuildProject>$(MSBuildProjectDirectory)/../../src/Engine.Build/Engine.Build.csproj</_EngineBuildProject>
+    </PropertyGroup>
+
+    <Message Importance="High" Text="Building example model database into $(_ExampleAssetsOutputDir)..." />
+    <Exec Command="dotnet run --project &quot;$(_EngineBuildProject)&quot; -- &quot;$(_ExampleModelsSourceDir)&quot; &quot;$(_ExampleAssetsOutputDir)&quot;" />
+  </Target>
+
+</Project>

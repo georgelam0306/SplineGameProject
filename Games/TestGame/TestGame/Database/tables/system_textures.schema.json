@@ -1,0 +1,155 @@
+{
+  "id": "184eda07-dbba-4848-a479-43175730d143",
+  "name": "textures",
+  "columns": [
+    {
+      "id": "asset_id",
+      "name": "AssetId",
+      "kind": "Number",
+      "typeId": "core.number",
+      "width": 100,
+      "projected": true,
+      "exportType": "int"
+    },
+    {
+      "id": "name",
+      "name": "Name",
+      "kind": "Text",
+      "typeId": "core.text",
+      "width": 220,
+      "projected": true
+    },
+    {
+      "id": "preview",
+      "name": "Preview",
+      "kind": "TextureAsset",
+      "typeId": "core.texture_asset",
+      "width": 180,
+      "projected": true
+    },
+    {
+      "id": "relative_path",
+      "name": "RelativePath",
+      "kind": "Text",
+      "typeId": "core.text",
+      "width": 320,
+      "projected": true
+    },
+    {
+      "id": "kind",
+      "name": "Kind",
+      "kind": "Select",
+      "typeId": "core.select",
+      "width": 130,
+      "options": [
+        "Texture",
+        "Model",
+        "Audio",
+        "Material",
+        "Other"
+      ],
+      "projected": true
+    },
+    {
+      "id": "extension",
+      "name": "Extension",
+      "kind": "Text",
+      "typeId": "core.text",
+      "width": 90,
+      "projected": true
+    },
+    {
+      "id": "size_bytes",
+      "name": "SizeBytes",
+      "kind": "Number",
+      "typeId": "core.number",
+      "width": 120,
+      "projected": true
+    },
+    {
+      "id": "content_hash",
+      "name": "ContentHash",
+      "kind": "Text",
+      "typeId": "core.text",
+      "width": 280,
+      "projected": true
+    },
+    {
+      "id": "missing",
+      "name": "Missing",
+      "kind": "Checkbox",
+      "typeId": "core.checkbox",
+      "width": 90,
+      "projected": true
+    },
+    {
+      "id": "last_seen_utc",
+      "name": "LastSeenUtc",
+      "kind": "Text",
+      "typeId": "core.text",
+      "width": 200,
+      "projected": true
+    }
+  ],
+  "derived": {
+    "baseTableId": "e39e1e7f-22f2-42ca-8c36-ed7c999640b2",
+    "steps": [],
+    "projections": [
+      {
+        "sourceTableId": "e39e1e7f-22f2-42ca-8c36-ed7c999640b2",
+        "sourceColumnId": "asset_id",
+        "outputColumnId": "asset_id"
+      },
+      {
+        "sourceTableId": "e39e1e7f-22f2-42ca-8c36-ed7c999640b2",
+        "sourceColumnId": "name",
+        "outputColumnId": "name"
+      },
+      {
+        "sourceTableId": "e39e1e7f-22f2-42ca-8c36-ed7c999640b2",
+        "sourceColumnId": "relative_path",
+        "outputColumnId": "preview",
+        "renameAlias": "Preview"
+      },
+      {
+        "sourceTableId": "e39e1e7f-22f2-42ca-8c36-ed7c999640b2",
+        "sourceColumnId": "relative_path",
+        "outputColumnId": "relative_path"
+      },
+      {
+        "sourceTableId": "e39e1e7f-22f2-42ca-8c36-ed7c999640b2",
+        "sourceColumnId": "kind",
+        "outputColumnId": "kind"
+      },
+      {
+        "sourceTableId": "e39e1e7f-22f2-42ca-8c36-ed7c999640b2",
+        "sourceColumnId": "extension",
+        "outputColumnId": "extension"
+      },
+      {
+        "sourceTableId": "e39e1e7f-22f2-42ca-8c36-ed7c999640b2",
+        "sourceColumnId": "size_bytes",
+        "outputColumnId": "size_bytes"
+      },
+      {
+        "sourceTableId": "e39e1e7f-22f2-42ca-8c36-ed7c999640b2",
+        "sourceColumnId": "content_hash",
+        "outputColumnId": "content_hash"
+      },
+      {
+        "sourceTableId": "e39e1e7f-22f2-42ca-8c36-ed7c999640b2",
+        "sourceColumnId": "missing",
+        "outputColumnId": "missing"
+      },
+      {
+        "sourceTableId": "e39e1e7f-22f2-42ca-8c36-ed7c999640b2",
+        "sourceColumnId": "last_seen_utc",
+        "outputColumnId": "last_seen_utc"
+      }
+    ],
+    "filterExpression": "thisRow.Kind == \u0022Texture\u0022"
+  },
+  "systemKey": "system.textures",
+  "systemSchemaLocked": true,
+  "systemDataLocked": true
+}

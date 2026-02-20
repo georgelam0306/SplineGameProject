@@ -1,0 +1,13 @@
+[
+  {
+    "Id": 0,
+    "Name": "Default",
+    "GridSize": 128,
+    "CellSize": 64,
+    "SpreadScale": 0.4,
+    "GradientScale": 1.0,
+    "SmoothingAlpha": 0.5,
+    "DeadZoneThresholdSq": 0.01,
+    "MinDensityThreshold": 1
+  }
+]
